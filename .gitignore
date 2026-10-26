@@ -1,0 +1,22 @@
+# Large neural network models (~2.5 GB)
+models/
+*.safetensors
+*.bin
+*.onnx
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs & debug dumps
+*.log
+magic_mirror.log
+debug_pose.json
+stats.json
+
+# IDE / OS temporary files
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini
