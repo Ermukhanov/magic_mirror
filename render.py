@@ -8,6 +8,8 @@
 import os
 import math
 import random
+import threading
+from collections import deque
 import cv2
 import numpy as np
 import config
@@ -23,43 +25,69 @@ class VideoWorldManager:
     """
     Менеджер живых видео-миров (Этап 3, video_worlds: true):
     - Загружает бесшовные циклы 1280x720 30 FPS из assets/<hero_id>/world.mp4.
-    - Кэширует кадры в ОЗУ для мгновенного доступа (0.001 мс) без задержек диска.
+    - Декодирование в фоновом демон-потоке с буфером (не блокирует 30+ FPS рендер-поток).
+    - Бесшовный цикл вперёд-назад (ping-pong loop): 0..N-1..0 без резкого шва на стыке.
     - При отсутствии файла или выключении флага безопасно возвращает None (фоллбэк на stage_bg).
     """
 
     def __init__(self):
         self._cache = {}
         self._missing = set()
+        self._loading = set()
+        self._lock = threading.Lock()
+
+    def _load_worker(self, hero_id):
+        v_path = os.path.join(config.BASE_DIR, "assets", hero_id, "world.mp4")
+        if not os.path.exists(v_path):
+            with self._lock:
+                self._missing.add(hero_id)
+                self._loading.discard(hero_id)
+            return
+
+        frames = []
+        cap = cv2.VideoCapture(v_path)
+        while cap.isOpened():
+            ok, fr = cap.read()
+            if not ok or fr is None:
+                break
+            if fr.shape[1] != W or fr.shape[0] != H:
+                fr = cv2.resize(fr, (W, H), interpolation=cv2.INTER_LINEAR)
+            frames.append(fr)
+        cap.release()
+
+        with self._lock:
+            if frames:
+                self._cache[hero_id] = frames
+            else:
+                self._missing.add(hero_id)
+            self._loading.discard(hero_id)
 
     def get_frame(self, hero_id, t, is_flying=False):
         if not bool(config.VIDEO_WORLDS):
             return None
-        if hero_id in self._missing:
-            return None
-        if hero_id not in self._cache:
-            v_path = os.path.join(config.BASE_DIR, "assets", hero_id, "world.mp4")
-            if not os.path.exists(v_path):
-                self._missing.add(hero_id)
+        with self._lock:
+            if hero_id in self._missing:
                 return None
-            frames = []
-            cap = cv2.VideoCapture(v_path)
-            while cap.isOpened():
-                ok, fr = cap.read()
-                if not ok or fr is None:
-                    break
-                if fr.shape[1] != W or fr.shape[0] != H:
-                    fr = cv2.resize(fr, (W, H))
-                frames.append(fr)
-            cap.release()
-            if not frames:
-                self._missing.add(hero_id)
+            if hero_id in self._cache:
+                frames = self._cache[hero_id]
+            else:
+                if hero_id not in self._loading:
+                    self._loading.add(hero_id)
+                    threading.Thread(target=self._load_worker, args=(hero_id,), daemon=True).start()
                 return None
-            self._cache[hero_id] = frames
 
-        frames = self._cache[hero_id]
         n = len(frames)
+        if n == 0:
+            return None
+        if n == 1:
+            return frames[0].copy()
+
+        # Бесшовный цикл вперёд-назад (ping-pong loop):
+        # 0 -> 1 -> ... -> n-1 -> n-2 -> ... -> 1 -> 0
+        cycle_len = 2 * (n - 1)
         fps = 30.0 * (1.5 if is_flying else 1.0)
-        idx = int(t * fps) % n
+        phase = int(t * fps) % cycle_len
+        idx = phase if phase < n else cycle_len - phase
         return frames[idx].copy()
 
 
@@ -405,13 +433,13 @@ def holo_person(frame, hero, t, g, bbox=None):
     if x1 > x0 and y1 > y0:
         a = np.zeros((2 * R, 2 * R), np.uint8)
         cv2.circle(a, (R, R), int(R * .85), 255, -1)
-        a = cv2.GaussianBlur(a, (0, 0), R * 0.18)[y0 - (cy - R):y1 - (cy - R), x0 - (cx - R):x1 - (cx - R)]
-        a3 = cv2.merge([a, a, a])
+        k_sz = max(5, min(25, (int(R * 0.18) // 2) * 2 + 1))
+        a = cv2.GaussianBlur(a, (k_sz, k_sz), 0)[y0 - (cy - R):y1 - (cy - R), x0 - (cx - R):x1 - (cx - R)]
+        af = a.astype(np.float32) * (1.0 / 255.0)
         rx0, ry0, rx1, ry1 = x0 - bx0, y0 - by0, x1 - bx0, y1 - by0
-        out_person_roi[ry0:ry1, rx0:rx1] = cv2.add(
-            cv2.multiply(frame[y0:y1, x0:x1], a3, scale=1 / 255),
-            cv2.multiply(out_person_roi[ry0:ry1, rx0:rx1], cv2.bitwise_not(a3), scale=1 / 255)
-        )
+        fg_face = frame[y0:y1, x0:x1]
+        bg_face = out_person_roi[ry0:ry1, rx0:rx1]
+        out_person_roi[ry0:ry1, rx0:rx1] = cv2.blendLinear(fg_face, bg_face, af, 1.0 - af)
     return out_person_roi
 
 

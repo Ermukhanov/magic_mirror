@@ -41,79 +41,79 @@ HERO_PROMPTS = {
 }
 NEGATIVE_PROMPT = "bad anatomy, extra limbs, deformed hands, distorted face, blurry, ugly, low quality, artifacts, text, logo"
 
-# Опорные цвета костюмов для 8 героев (BGR)
+# Опорные цвета костюмов для 8 героев (глубокие, царские, кинематографичные тона BGR)
 HERO_SKETCH_PALETTES = {
     "alpamys": dict(
-        tunic=(42, 60, 215),     # алый кафтан батыра
-        armor=(45, 205, 255),    # сияющее золото брони
-        cape=(32, 38, 220),      # алый плащ
-        belt=(30, 145, 240),     # золотисто-кожаный пояс
-        bracer=(45, 200, 255),   # золотые наручи
-        trim=(90, 235, 255),     # золотой орнамент
-        bg_fill=(65, 115, 185),  # золотисто-красный фон
+        tunic=(28, 30, 140),     # глубокий царский багровый кафтан
+        armor=(32, 145, 205),    # чеканное батырское золото
+        cape=(22, 24, 120),      # бархатный тёмно-алый плащ
+        belt=(25, 85, 160),      # тиснёный кожаный пояс с золотой пряжкой
+        bracer=(32, 145, 205),   # золотые наручи
+        trim=(50, 180, 235),     # античный золотой орнамент
+        bg_fill=(45, 75, 125),   # благородный фон
     ),
     "tomiris": dict(
-        tunic=(145, 48, 175),    # царский пурпур
-        armor=(50, 205, 255),    # сакское золото
-        cape=(125, 38, 155),     # пурпурный плащ
-        belt=(45, 195, 255),     # золотой пояс
-        bracer=(50, 210, 255),   # золотые наручи
-        trim=(110, 240, 255),    # сакский орнамент и рубин
-        bg_fill=(110, 95, 165),  # пурпурно-золотой фон
+        tunic=(105, 30, 95),     # царский сакский пурпур
+        armor=(35, 145, 195),    # древнее сакское золото
+        cape=(85, 22, 75),       # глубокий пурпурный плащ
+        belt=(35, 145, 195),     # золотой пояс
+        bracer=(35, 145, 195),   # золотые наручи
+        trim=(55, 175, 230),     # золотая филигрань и рубин
+        bg_fill=(75, 55, 110),
     ),
     "spider": dict(
-        tunic=(215, 70, 30),     # ярко-синий костюм
-        armor=(40, 45, 235),     # красный паучий жилет
+        tunic=(145, 45, 20),     # глубокий полуночно-синий
+        armor=(25, 30, 175),     # благородный тёмно-алый паучий жилет
         cape=None,
-        belt=(40, 45, 235),
-        bracer=(40, 45, 235),
-        trim=(25, 25, 30),       # чёрная паутина
-        bg_fill=(115, 65, 135),
+        belt=(25, 30, 175),
+        bracer=(25, 30, 175),
+        trim=(20, 20, 22),       # обсидиановая паутина
+        bg_fill=(75, 40, 85),
     ),
     "elsa": dict(
-        tunic=(245, 205, 110),   # ледяной голубой
-        armor=(255, 235, 175),   # кристальный лиф
-        cape=(255, 225, 145),    # шлейф-плащ
-        belt=(255, 245, 210),
-        bracer=(250, 220, 140),
-        trim=(255, 255, 255),    # сияющая снежинка
-        bg_fill=(215, 185, 115),
+        tunic=(225, 165, 80),    # кристальный сапфирово-лазурный
+        armor=(245, 205, 135),   # ледяной морозный корсет
+        cape=(235, 195, 120),    # струящийся полупрозрачный шлейф
+        belt=(240, 215, 155),
+        bracer=(235, 195, 125),
+        trim=(255, 255, 255),    # сияющий алмазный кристалл
+        bg_fill=(165, 135, 85),
     ),
     "ladybug": dict(
-        tunic=(42, 42, 235),     # алый костюм
-        armor=(45, 45, 240),
+        tunic=(26, 30, 180),     # глубокий рубиново-алый костюм
+        armor=(28, 32, 185),
         cape=None,
-        belt=(30, 30, 35),
-        bracer=(42, 42, 235),
-        trim=(25, 25, 30),       # чёрный горошек
-        bg_fill=(65, 65, 175),
+        belt=(22, 22, 25),
+        bracer=(26, 30, 180),
+        trim=(18, 18, 20),       # обсидиановые матовые точки
+        bg_fill=(45, 45, 110),
     ),
     "iron": dict(
-        tunic=(38, 45, 210),     # бордово-красный титан
-        armor=(45, 205, 250),    # золотые пластины
+        tunic=(25, 30, 145),     # глубокий титановый винно-красный
+        armor=(35, 145, 205),    # полированное золото и латунь
         cape=None,
-        belt=(45, 185, 245),
-        bracer=(42, 55, 220),
-        trim=(255, 235, 120),    # реактор
-        bg_fill=(65, 105, 190),
+        belt=(28, 32, 135),
+        bracer=(28, 35, 155),
+        trim=(255, 220, 90),     # сияющий дуговой реактор
+        bg_fill=(45, 65, 120),
     ),
     "astronaut": dict(
-        tunic=(238, 240, 245),   # белый скафандр
-        armor=(245, 246, 250),   # пульт управления
-        cape=(205, 210, 220),    # ранец жизнеобеспечения
-        belt=(195, 75, 40),
-        bracer=(230, 235, 242),
-        trim=(60, 70, 235),
-        bg_fill=(185, 190, 200),
+        tunic=(215, 220, 225),   # композитный лунный белый
+        armor=(170, 175, 185),   # титановый модуль жизнеобеспечения
+        cape=(175, 180, 190),    # космический ранец
+        belt=(160, 65, 35),
+        bracer=(195, 200, 205),
+        trim=(170, 65, 35),      # кобальтово-синие эмблемы
+        bg_fill=(120, 125, 135),
     ),
     "fairy": dict(
-        tunic=(115, 215, 80),    # изумрудно-зелёный
-        armor=(195, 135, 255),   # розовый корсаж
-        cape=(225, 175, 255),    # крылья бабочки
-        belt=(70, 220, 255),
-        bracer=(185, 145, 250),
-        trim=(160, 255, 255),    # цветок
-        bg_fill=(145, 175, 140),
+        tunic=(55, 150, 40),     # глубокий изумрудный мох
+        armor=(155, 80, 205),    # орхидейно-розовый корсаж
+        cape=(195, 135, 235),    # радужные крылья бабочки
+        belt=(50, 165, 205),
+        bracer=(145, 90, 195),
+        trim=(90, 220, 250),     # золотисто-янтарная пыльца
+        bg_fill=(95, 120, 90),
     ),
 }
 
@@ -370,15 +370,47 @@ def build_costume_sketch(frame_bgr, person_mask, p_local, hero, hands_live=True)
             cv2.rectangle(armor_layer, p0, p1, c_cape, -1, AA)
             cv2.rectangle(armor_layer, p0, p1, (130, 140, 155), 4, AA)
         else:
-            cape_bot_y = min(h_img - 4, int(hip[1] + th * 0.35))
+            cape_bot_y = min(h_img - 4, int(hip[1] + th * 0.38))
+            top_y = int(neck[1] - 4)
             cape_pts = np.array([
-                [int(sh_l[0] - sw * 0.15), int(sh_l[1] - 4)],
-                [int(sh_r[0] + sw * 0.15), int(sh_r[1] - 4)],
-                [int(hp_r[0] + sw * 0.62), cape_bot_y],
-                [int(hp_l[0] - sw * 0.62), cape_bot_y],
+                [int(sh_l[0] - sw * 0.15), top_y],
+                [int(sh_r[0] + sw * 0.15), top_y],
+                [int(hp_r[0] + sw * 0.65), cape_bot_y],
+                [int(hp_l[0] - sw * 0.65), cape_bot_y],
             ], np.int32)
-            cv2.fillPoly(armor_layer, [cape_pts], c_cape, AA)
-            cv2.polylines(armor_layer, [cape_pts], True, c_trim, 5, AA)
+
+            # Вертикальный градиент плаща (от освещённых плеч к глубокому бархату внизу)
+            c_top = tuple(min(255, int(c * 1.25)) for c in c_cape)
+            c_bot = tuple(max(10, int(c * 0.70)) for c in c_cape)
+            cape_mask = np.zeros((h_img, w_img), dtype=np.uint8)
+            cv2.fillPoly(cape_mask, [cape_pts], 255)
+
+            y_span = max(1, cape_bot_y - top_y)
+            grad_1d = np.linspace(0.0, 1.0, y_span, dtype=np.float32)
+            for ch in range(3):
+                col_grad = (c_top[ch] * (1.0 - grad_1d) + c_bot[ch] * grad_1d).astype(np.uint8)
+                col_block = np.tile(col_grad[:, None], (1, w_img))
+                armor_layer[top_y:cape_bot_y, :, ch] = np.where(
+                    cape_mask[top_y:cape_bot_y] > 0,
+                    col_block,
+                    armor_layer[top_y:cape_bot_y, :, ch]
+                )
+
+            # Складки плаща (вертикальные драпировки: чередующиеся тени и блики на гребнях)
+            n_folds = 7
+            c_shadow = tuple(max(5, int(c * 0.52)) for c in c_cape)
+            c_highlight = tuple(min(255, int(c * 1.35)) for c in c_cape)
+            for f_i in range(n_folds):
+                frac = (f_i + 1) / float(n_folds + 1)
+                p_top = (int(sh_l[0] + (sh_r[0] - sh_l[0]) * frac), top_y)
+                bot_x0 = int(hp_l[0] - sw * 0.65)
+                bot_x1 = int(hp_r[0] + sw * 0.65)
+                p_bot = (int(bot_x0 + (bot_x1 - bot_x0) * frac), cape_bot_y)
+                col_fold = c_shadow if f_i % 2 == 0 else c_highlight
+                th_fold = max(2, int(sw * 0.035)) if f_i % 2 == 0 else max(1, int(sw * 0.02))
+                cv2.line(armor_layer, p_top, p_bot, col_fold, th_fold, AA)
+
+            cv2.polylines(armor_layer, [cape_pts], True, c_trim, 4, AA)
 
     # 3. РУКАВА И НАРУЧИ НА ПРЕДПЛЕЧЬЯХ (С ИСПОЛЬЗОВАНИЕМ GLOVE PNG)
     glove_png = load_hero_png(hid, "glove")
@@ -420,8 +452,23 @@ def build_costume_sketch(frame_bgr, person_mask, p_local, hero, hands_live=True)
             [int(hp_l[0] - sw * 0.06), chest_bot_y],
             [int(neck[0] - sw * 0.44), int(neck[1] + th * 0.45)],
         ], np.int32)
-        cv2.fillPoly(armor_layer, [chest_pts], pal["armor"], AA)
-        cv2.polylines(armor_layer, [chest_pts], True, pal["trim"], 5, AA)
+        # Вертикальный металлический градиент кирасы (светотень и объём)
+        ch_mask = np.zeros((h_img, w_img), dtype=np.uint8)
+        cv2.fillPoly(ch_mask, [chest_pts], 255)
+        ch_span = max(1, chest_bot_y - chest_top_y)
+        grad_ch = np.linspace(0.0, 1.0, ch_span, dtype=np.float32)
+        c_arm_hi = tuple(min(255, int(c * 1.30 + 18)) for c in pal["armor"])
+        c_arm_lo = tuple(max(10, int(c * 0.72)) for c in pal["armor"])
+        for ch in range(3):
+            col_grad = (c_arm_hi[ch] * (1.0 - grad_ch) + c_arm_lo[ch] * grad_ch).astype(np.uint8)
+            col_block = np.tile(col_grad[:, None], (1, w_img))
+            armor_layer[chest_top_y:chest_bot_y, :, ch] = np.where(
+                ch_mask[chest_top_y:chest_bot_y] > 0,
+                col_block,
+                armor_layer[chest_top_y:chest_bot_y, :, ch]
+            )
+        cv2.polylines(armor_layer, [chest_pts], True, pal["trim"], 4, AA)
+
         inner_pts = np.array([
             [int(sh_l[0] + sw * 0.06), int(chest_top_y + th * 0.07)],
             [int(sh_r[0] - sw * 0.06), int(chest_top_y + th * 0.07)],
@@ -429,7 +476,7 @@ def build_costume_sketch(frame_bgr, person_mask, p_local, hero, hands_live=True)
             [int(hp_l[0] + sw * 0.04), int(chest_bot_y - th * 0.12)],
         ], np.int32)
         hi_col = tuple(min(255, int(c * 1.15 + 22)) for c in pal["armor"])
-        cv2.fillPoly(armor_layer, [inner_pts], hi_col, AA)
+        cv2.polylines(armor_layer, [inner_pts], True, pal["trim"], 2, AA)
 
         # 5. ИНДИВИДУАЛЬНЫЕ ЭМБЛЕМЫ И УЗОРЫ ДЛЯ ВСЕХ 8 ГЕРОЕВ (только при отсутствии PNG-ассета)
         chest_c = (int(neck[0]), int(neck[1] + th * 0.34))
@@ -468,23 +515,17 @@ def build_costume_sketch(frame_bgr, person_mask, p_local, hero, hands_live=True)
                 sy = int(chest_c[1] + dy_k * th)
                 cv2.circle(armor_layer, (sx, sy), spot_r, (20, 20, 25), -1, AA)
 
-        elif hid == "alpamys":
+        elif hid in ("alpamys", "tomiris"):
+            # Казахский национальный орнамент «қошқар мүйіз» (рога барана) и царский медальон
             orn_r = int(sw * 0.18)
             cv2.circle(armor_layer, chest_c, orn_r + 6, pal["cape"], -1, AA)
             cv2.circle(armor_layer, chest_c, orn_r + 6, pal["trim"], 4, AA)
             for s_k in (-1, 1):
-                cv2.ellipse(armor_layer, (chest_c[0] + int(s_k * orn_r * 0.55), chest_c[1]),
-                            (int(orn_r * 0.48), int(orn_r * 0.36)), 0, -40, 220, pal["trim"], 5, AA)
-
-        elif hid == "tomiris":
-            orn_r = int(sw * 0.18)
-            cv2.circle(armor_layer, chest_c, orn_r + 6, pal["cape"], -1, AA)
-            cv2.circle(armor_layer, chest_c, orn_r + 6, pal["trim"], 4, AA)
-            for s_k in (-1, 1):
-                cv2.ellipse(armor_layer, (chest_c[0] + int(s_k * orn_r * 0.55), chest_c[1]),
-                            (int(orn_r * 0.48), int(orn_r * 0.36)), 0, -40, 220, pal["trim"], 5, AA)
-            cv2.circle(armor_layer, chest_c, max(6, int(sw * 0.06)), (50, 40, 230), -1, AA)
-            cv2.circle(armor_layer, chest_c, max(6, int(sw * 0.06)), (120, 240, 255), 2, AA)
+                h_cx = int(chest_c[0] + s_k * orn_r * 0.55)
+                cv2.ellipse(armor_layer, (h_cx, chest_c[1]), (int(orn_r * 0.52), int(orn_r * 0.40)), 0, -45, 225, pal["trim"], max(3, int(sw * 0.035)), AA)
+                cv2.ellipse(armor_layer, (h_cx, chest_c[1]), (int(orn_r * 0.30), int(orn_r * 0.22)), 0, -45, 225, (255, 255, 255), 2, AA)
+            cv2.circle(armor_layer, chest_c, max(6, int(sw * 0.06)), (50, 40, 230) if hid == "tomiris" else pal["trim"], -1, AA)
+            cv2.circle(armor_layer, chest_c, max(6, int(sw * 0.06)), (120, 240, 255) if hid == "tomiris" else (255, 255, 255), 2, AA)
 
         elif hid == "iron":
             r_arc = max(15, int(sw * 0.15))

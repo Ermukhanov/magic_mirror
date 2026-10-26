@@ -21,6 +21,7 @@
   "fx_clips": true,
   "sketch_conditioning": true,
   "hands_live": true,
+  "procedural_armor": false,
   "ai_mode": "auto",
   "ai_regime": "A",
   "ai_recommended": {

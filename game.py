@@ -25,42 +25,96 @@ _fx_missing = set()
 class FXClipManager:
     """
     Менеджер видеоэффектов атак (Этап 3, fx_clips: true):
-    - Загружает кадры из assets/<hero_id>/fx_<action>.mp4.
-    - Кэширует в памяти для мгновенного наложения через аддитивный бленд (0.05 мс).
-    - При отсутствии файла безопасно возвращает None (фоллбэк на процедурные эффекты).
+    - Сначала ищет общие стандартизированные эффекты в assets/fx/<name>.mp4 (fireworks, beam, shield, burst).
+    - Перекрашивает общий эффект под индивидуальный цвет героя через сдвиг оттенка HSV (сохраняет кэш в ОЗУ).
+    - Если общий файл отсутствует, использует локальные assets/<hero_id>/fx_<action>.mp4.
+    - При отсутствии видеофайлов безопасно возвращает None (фоллбэк на процедурные векторные спецэффекты).
     """
 
     def __init__(self):
         self._cache = _fx_cache
+        self._shared_raw = {}
         self._missing = _fx_missing
 
-    def get_frame(self, hero_id, action, age_sec):
+    def _recolor_hsv(self, raw_frames, target_bgr):
+        target_pix = np.uint8([[list(target_bgr)]])
+        target_h = int(cv2.cvtColor(target_pix, cv2.COLOR_BGR2HSV)[0, 0, 0])
+        recolored = []
+        for fr in raw_frames:
+            hsv = cv2.cvtColor(fr, cv2.COLOR_BGR2HSV)
+            mask = hsv[:, :, 2] > 14
+            hsv[mask, 0] = target_h
+            hsv[mask, 1] = np.clip(hsv[mask, 1].astype(np.int16) + 20, 0, 255).astype(np.uint8)
+            recolored.append(cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR))
+        return recolored
+
+    def _read_video_frames(self, path):
+        if not os.path.exists(path):
+            return None
+        frames = []
+        cap = cv2.VideoCapture(path)
+        while cap.isOpened():
+            ok, fr = cap.read()
+            if not ok or fr is None:
+                break
+            frames.append(fr)
+        cap.release()
+        return frames if frames else None
+
+    def get_frame(self, hero_or_id, action, age_sec):
         if not bool(config.FX_CLIPS):
             return None
-        key = (hero_id, action)
-        if key in self._missing:
-            return None
-        if key not in self._cache:
-            p = os.path.join(config.BASE_DIR, "assets", hero_id, f"fx_{action}.mp4")
-            if not os.path.exists(p):
-                self._missing.add(key)
-                return None
-            frames = []
-            cap = cv2.VideoCapture(p)
-            while cap.isOpened():
-                ok, fr = cap.read()
-                if not ok or fr is None:
-                    break
-                frames.append(fr)
-            cap.release()
-            if not frames:
-                self._missing.add(key)
-                return None
-            self._cache[key] = frames
 
-        frames = self._cache[key]
-        idx = int(age_sec * 30.0) % len(frames)
-        return frames[idx]
+        if isinstance(hero_or_id, dict):
+            hero_id = hero_or_id["id"]
+            target_glow = hero_or_id.get("glow", (255, 220, 40))
+        else:
+            hero_id = str(hero_or_id)
+            target_glow = (255, 220, 40)
+
+        cache_key = (hero_id, action)
+        if cache_key in self._cache:
+            frames = self._cache[cache_key]
+            if not frames:
+                return None
+            idx = int(age_sec * 30.0) % len(frames)
+            return frames[idx]
+
+        if cache_key in self._missing:
+            return None
+
+        # 1. Проверяем общие стандартизированные эффекты из assets/fx/
+        action_aliases = [action]
+        if action in ("special", "burst"):
+            action_aliases = ["burst", "special"]
+
+        shared_frames = None
+        for alias in action_aliases:
+            if alias not in self._shared_raw:
+                p_shared = os.path.join(config.BASE_DIR, "assets", "fx", f"{alias}.mp4")
+                self._shared_raw[alias] = self._read_video_frames(p_shared)
+            if self._shared_raw[alias] is not None:
+                shared_frames = self._shared_raw[alias]
+                break
+
+        if shared_frames is not None:
+            # Перекрашиваем под цвет героя (HSV hue shift) и кэшируем результат
+            recolored = self._recolor_hsv(shared_frames, target_glow)
+            self._cache[cache_key] = recolored
+            idx = int(age_sec * 30.0) % len(recolored)
+            return recolored[idx]
+
+        # 2. Фоллбэк на индивидуальный файл героя assets/<hero_id>/fx_<action>.mp4
+        p_hero = os.path.join(config.BASE_DIR, "assets", hero_id, f"fx_{action}.mp4")
+        hero_frames = self._read_video_frames(p_hero)
+        if hero_frames is not None:
+            self._cache[cache_key] = hero_frames
+            idx = int(age_sec * 30.0) % len(hero_frames)
+            return hero_frames[idx]
+
+        # 3. Ни один файл не найден — запоминаем и отдаём None (процедурный рендер)
+        self._missing.add(cache_key)
+        return None
 
 
 _FX_MGR = None
@@ -510,7 +564,7 @@ def trigger_hero_special(out, p, g, hero, acts, t, dt, S):
 
     if is_sp_active:
         sp_age = max(0.0, 2.5 - (S.get("special_active_until", t) - t))
-        fx_spec = get_fx_manager().get_frame(hero["id"], "special", sp_age)
+        fx_spec = get_fx_manager().get_frame(hero, "burst", sp_age)
         if fx_spec is not None:
             overlay_fx_clip(out, fx_spec, (int(g["neck"][0]), int(g["neck"][1] + g["th"] * 0.35)), g["sw"] * 2.8, g["sw"] * 2.8)
         txt(out, tr(f"spec_{hero['id']}"), W // 2, 132, 42, (80, 255, 140), center=True)
@@ -548,7 +602,7 @@ def game_fx(out, p, g, hero, t, dt, S):
     glow = hero["glow"]
     if "fly" in active:
         c = ip(g["hip"])
-        fx_fly = get_fx_manager().get_frame(hero["id"], "fly", t - S["act"]["fly"])
+        fx_fly = get_fx_manager().get_frame(hero, "fly", t - S["act"]["fly"])
         if fx_fly is not None:
             overlay_fx_clip(out, fx_fly, (c[0], c[1] + int(g["th"] * 0.45)), g["sw"] * 2.2, g["sw"] * 2.2)
         for i in range(3):
@@ -563,7 +617,7 @@ def game_fx(out, p, g, hero, t, dt, S):
             S["last_fly"] = t
     if "shield" in active:
         c, R = g["hip"] * .4 + g["neck"] * .6, g["th"] * 1.35
-        fx_shield = get_fx_manager().get_frame(hero["id"], "shield", t - S["act"]["shield"])
+        fx_shield = get_fx_manager().get_frame(hero, "shield", t - S["act"]["shield"])
         if fx_shield is not None:
             overlay_fx_clip(out, fx_shield, c, R * 2.2, R * 2.2)
         hexa = [(c[0] + R * math.cos(math.pi / 3 * i + t), c[1] + R * math.sin(math.pi / 3 * i + t)) for i in range(6)]
@@ -593,7 +647,7 @@ def game_fx(out, p, g, hero, t, dt, S):
     if "beam" in active:
         txt(out, tr("beam_bang"), W // 2, 70, 76, glow, center=True)
         for w, d in acts["beams"]:
-            fx_beam = get_fx_manager().get_frame(hero["id"], "beam", t - S["act"]["beam"])
+            fx_beam = get_fx_manager().get_frame(hero, "beam", t - S["act"]["beam"])
             if fx_beam is not None:
                 overlay_fx_clip(out, fx_beam, w + d * 160, g["sw"] * 1.9, g["sw"] * 1.9)
             e = w + d * 1700

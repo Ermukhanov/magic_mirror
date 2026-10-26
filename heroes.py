@@ -134,6 +134,10 @@ def draw_back(img, g, hero, t):
         if overlay_rgba_sprite(img, back_png, cx, cy, sw * 2.4, th * 1.65, -ang):
             return
 
+    # Если процедурные доспехи отключены (по умолчанию PROCEDURAL_ARMOR=False) и PNG нет — ничего не рисуем
+    if not getattr(config, "PROCEDURAL_ARMOR", False):
+        return
+
     sway = math.sin(t * 3.5) * sw * 0.16
     if hero["id"] == "spider":
         c = (g["neck"] + g["hip"]) * 0.5
@@ -234,6 +238,7 @@ def draw_front(img, g, hero, t, ai_active=False):
     sw, th = g["sw"], g["th"]
     ls, rs, lh, rh = g["ls"], g["rs"], g["lh"], g["rh"]
     glow, acc = hero["glow"], hero["accent"]
+    procedural = getattr(config, "PROCEDURAL_ARMOR", False)
 
     # Если активно реальное ИИ-превращение (ai_active=True), ИИ сам детально отрисовал броню, эмблему и наручи на теле;
     # поверх тела не перекрываем их плоским полигоном (рисуем только корону/нимб над головой и PNG-арт при наличии).
@@ -243,7 +248,7 @@ def draw_front(img, g, hero, t, ai_active=False):
             cx, cy = (g["neck"][0] + g["hip"][0]) * 0.5, (g["neck"][1] + g["hip"][1]) * 0.5
             ang = math.degrees(math.atan2(rs[1] - ls[1], rs[0] - ls[0]))
             overlay_rgba_sprite(img, armor_png, cx, cy, sw * 1.45, th * 1.15, -ang)
-        elif hero["armor"]:
+        elif procedural and hero["armor"]:
             plate = [ls + [sw * .06, sw * .07], rs + [-sw * .06, sw * .07], lerp(rs, rh, .72) + [-sw * .04, 0], lerp(ls, lh, .72) + [sw * .04, 0]]
             apoly(img, plate, acc, 0.88, (255, 255, 255), 2)
             if hero["id"] == "spider":
@@ -262,15 +267,15 @@ def draw_front(img, g, hero, t, ai_active=False):
                 cv2.line(img, ip(a), ip(b), (30, 30, 40), max(4, int(sw * .07)), AA)
                 cv2.circle(img, ip((a + b) / 2), int(sw * .06), (255, 255, 255), -1, AA)
 
-        if hero["pauldron"] and armor_png is None:
+        if hero["pauldron"] and armor_png is None and procedural:
             for s in (ls, rs):
                 cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, acc, -1, AA)
                 cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, (255, 255, 255), 2, AA)
 
-        if armor_png is None:
+        if armor_png is None and procedural:
             emblem(img, lerp(g["neck"], g["hip"], .33 if hero["armor"] else .4), sw * .2, hero["emblem"], hero, t)
 
-        if hero["id"] == "astronaut":
+        if hero["id"] == "astronaut" and armor_png is None and procedural:
             cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, (235, 235, 240), int(sw * .07), AA)
             cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, glow, 2, AA)
 
@@ -278,13 +283,13 @@ def draw_front(img, g, hero, t, ai_active=False):
     crown_png = load_hero_png(hero["id"], "crown")
     if crown_png is not None:
         overlay_rgba_sprite(img, crown_png, g["nose"][0], g["nose"][1] - hr * 1.75, hr * 1.8, hr * 1.1)
-    elif hero["crown"]:   # корона/диадема парит НАД головой, лицо открыто
+    elif hero["crown"] and procedural:   # корона/диадема парит НАД головой, лицо открыто
         b, wd = g["nose"] + [0, -hr * 1.55], hr * .75
         pts = [b + [-wd, 0], b + [-wd, -hr * .55], b + [-wd / 2, -hr * .2], b + [0, -hr * .75], b + [wd / 2, -hr * .2], b + [wd, -hr * .55], b + [wd, 0]]
         apoly(img, pts, acc, 1.0, (255, 255, 255), 2)
         for q in (pts[1], pts[3], pts[5]):
             cv2.circle(img, ip(q), max(3, int(hr * .1)), (255, 255, 255), -1, AA)
-    if hero["halo"]:
+    if hero["halo"] and procedural:
         c = g["nose"] + [0, -hr * 1.75 + math.sin(t * 3) * 4]
         cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, hero["glow"], 6, AA)
         cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, (255, 255, 255), 2, AA)
@@ -296,7 +301,7 @@ def draw_front(img, g, hero, t, ai_active=False):
         r = sw * .15 * (1 + .12 * math.sin(t * 8))
         if glove_png is not None:
             overlay_rgba_sprite(img, glove_png, w[0], w[1], r * 2.4, r * 2.4)
-        elif not ai_active:
+        elif not ai_active and procedural:
             cv2.circle(img, ip(w), int(r), glow, -1, AA)
             cv2.circle(img, ip(w), int(r), (255, 255, 255), 3, AA)
         else:

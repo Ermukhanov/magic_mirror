@@ -34,6 +34,7 @@ _DEFAULTS = {
     "rich_worlds": True,
     "sketch_conditioning": True,
     "hands_live": True,
+    "procedural_armor": False,
 }
 
 
@@ -74,6 +75,7 @@ GAME_LAYER = bool(CFG.get("game_layer", True))
 RICH_WORLDS = VIDEO_WORLDS
 SKETCH_CONDITIONING = bool(CFG.get("sketch_conditioning", True))
 HANDS_LIVE = bool(CFG.get("hands_live", True))
+PROCEDURAL_ARMOR = bool(CFG.get("procedural_armor", False))
 
 AA = cv2.LINE_AA
 
