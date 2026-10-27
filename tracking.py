@@ -114,10 +114,12 @@ class Cam(threading.Thread):
                 f = cv2.resize(f, (W, H))
 
             # Автоматическая адаптивная яркость камеры: гарантирует яркое солнечное освещение даже в тёмной комнате
-            mean_b = float(cv2.mean(f[::8, ::8])[:3][0] * 0.114 + cv2.mean(f[::8, ::8])[:3][1] * 0.587 + cv2.mean(f[::8, ::8])[:3][2] * 0.299)
-            if mean_b < 135.0:
-                scale_cam = min(2.2, 142.0 / max(25.0, mean_b))
-                beta_cam = int(24 * (scale_cam - 0.5))
+            # Берём центральную область кадра (где стоит ребёнок), чтобы окна сзади не затемняли лицо
+            center_crop = f[H // 4: 3 * H // 4, W // 4: 3 * W // 4: 4]
+            mean_b = float(cv2.mean(center_crop)[:3][0] * 0.114 + cv2.mean(center_crop)[:3][1] * 0.587 + cv2.mean(center_crop)[:3][2] * 0.299)
+            if mean_b < 155.0:
+                scale_cam = min(2.5, 158.0 / max(25.0, mean_b))
+                beta_cam = int(26 * (scale_cam - 0.5))
                 f = cv2.convertScaleAbs(f, alpha=scale_cam, beta=beta_cam)
             now = time.perf_counter()
             dt = max(1e-3, now - prev_t)

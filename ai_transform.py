@@ -1153,9 +1153,13 @@ class AITransformManager:
 _AI_MANAGER = None
 
 
-def get_ai_manager():
+def get_ai_manager(force_start=False):
     global _AI_MANAGER
     if _AI_MANAGER is None:
         _AI_MANAGER = AITransformManager()
-        _AI_MANAGER.start()
+    if (force_start or str(config.AI_TRANSFORM).lower() != "off") and not _AI_MANAGER.is_alive():
+        try:
+            _AI_MANAGER.start()
+        except RuntimeError:
+            pass
     return _AI_MANAGER

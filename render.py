@@ -412,44 +412,44 @@ def stage_fx(bg, p, g, hero, t, dt, parts):
 
 
 def holo_person(frame, hero, t, g, bbox=None):
-    """Тело ребёнка становится голограммой, лицо остаётся настоящим. Рендерится в ROI силуэта для 60+ FPS."""
-    k = hero["id"]
-    if k not in _tint:
-        _tint[k] = np.full((H, W, 3), [min(255, int(c * 1.0) + 40) for c in hero["glow"]], np.uint8)
+    """
+    Силуэт и лицо ребёнка: максимально яркие, чистые, солнечные и реалистичные!
+    Костюм и аксессуары рисуются поверх в draw_front, поэтому под ними ребёнок выглядит
+    ярко, четко и без темных артефактов и сканлайнов.
+    """
     bx0, by0, bx1, by1 = bbox if bbox is not None else (0, 0, W, H)
     f_roi = frame[by0:by1, bx0:bx1]
-    t_roi = _tint[k][by0:by1, bx0:bx1]
-    off = int(t * 140) % H
-    s_roi = SCAN[off + by0:off + by1, bx0:bx1, 0]
 
-    gray = cv2.convertScaleAbs(cv2.cvtColor(f_roi, cv2.COLOR_BGR2GRAY), alpha=1.35, beta=22)
-    gray_scan = cv2.multiply(gray, s_roi, scale=1.0 / 255.0)
-    holo = cv2.multiply(cv2.merge([gray_scan, gray_scan, gray_scan]), t_roi, scale=1.0 / 255.0)
-    fl = 0.55 + 0.08 * random.random()
-    person_roi = cv2.addWeighted(f_roi, 0.78, holo, 0.42, 16)
-    if person_roi.shape[1] > 6:
-        person_roi[:, 3:, 2] = person_roi[:, :-3, 2]
-        person_roi[:, :-3, 0] = person_roi[:, 3:, 0]
+    # Солнечная автоэкспозиция тела ребёнка (цель 162 яркости)
+    mean_val = float(cv2.mean(f_roi)[0] * 0.114 + cv2.mean(f_roi)[1] * 0.587 + cv2.mean(f_roi)[2] * 0.299)
+    gain_b = min(2.4, 162.0 / max(30.0, mean_val))
+    beta_b = int(24 * (gain_b - 0.5))
+    bright_live = cv2.convertScaleAbs(f_roi, alpha=gain_b, beta=beta_b)
 
-    out_person_roi = person_roi
-    # Лицо без эффектов (всегда настоящее!)
-    R = max(8, int(g["hr"] * 1.45))
+    out_person_roi = bright_live
+
+    # Лицо ребёнка: гарантированно 100% живое, естественное, яркое и тёплое!
+    R = max(16, int(g["hr"] * 1.55))
     cx, cy = ip(g["nose"])
-    x0, y0, x1, y1 = max(cx - R, bx0), max(cy - R, by0), min(cx + R, bx1), min(cy + R, by1)
+    x0, y0, x1, y1 = max(cx - int(R * 1.15), bx0), max(cy - int(R * 1.35), by0), min(cx + int(R * 1.15), bx1), min(cy + int(R * 1.25), by1)
     if x1 > x0 and y1 > y0:
-        a = np.zeros((2 * R, 2 * R), np.uint8)
-        cv2.circle(a, (R, R), int(R * .85), 255, -1)
-        k_sz = max(5, min(25, (int(R * 0.18) // 2) * 2 + 1))
-        a = cv2.GaussianBlur(a, (k_sz, k_sz), 0)[y0 - (cy - R):y1 - (cy - R), x0 - (cx - R):x1 - (cx - R)]
-        af = a.astype(np.float32) * (1.0 / 255.0)
-        rx0, ry0, rx1, ry1 = x0 - bx0, y0 - by0, x1 - bx0, y1 - by0
         fg_face = frame[y0:y1, x0:x1]
-        # Яркое солнечное освещение лица ребёнка (чистый тон кожи без темноты)
         mean_face = float(cv2.mean(fg_face)[0] * 0.114 + cv2.mean(fg_face)[1] * 0.587 + cv2.mean(fg_face)[2] * 0.299)
-        scale_f = min(2.1, 148.0 / max(30.0, mean_face))
-        fg_face_bright = cv2.convertScaleAbs(fg_face, alpha=scale_f, beta=int(24 * (scale_f - 0.5)))
+        scale_f = min(2.5, 165.0 / max(30.0, mean_face))
+        fg_face_bright = cv2.convertScaleAbs(fg_face, alpha=scale_f, beta=int(26 * (scale_f - 0.5)))
+
+        fw, fh = x1 - x0, y1 - y0
+        a = np.zeros((fh, fw), np.uint8)
+        ecx, ecy = (cx - x0), (cy - y0)
+        cv2.ellipse(a, (ecx, ecy), (int(R * 0.95), int(R * 1.15)), 0, 0, 360, 255, -1)
+        k_sz = max(5, min(25, (int(R * 0.22) // 2) * 2 + 1))
+        a = cv2.GaussianBlur(a, (k_sz, k_sz), 0)
+        af = a.astype(np.float32) * (1.0 / 255.0)
+
+        rx0, ry0, rx1, ry1 = x0 - bx0, y0 - by0, x1 - bx0, y1 - by0
         bg_face = out_person_roi[ry0:ry1, rx0:rx1]
         out_person_roi[ry0:ry1, rx0:rx1] = cv2.blendLinear(fg_face_bright, bg_face, af, 1.0 - af)
+
     return out_person_roi
 
 
@@ -588,17 +588,11 @@ def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
             person_roi = holo_person(frame, hero, t, g, bbox=(bx0, by0, bx1, by1))
             m_roi_s = mask_s[int(by0 * SH / H):int(by1 * SH / H), int(bx0 * SW / W):int(bx1 * SW / W)]
             if m_roi_s.size > 0:
-                m8_roi = cv2.resize((m_roi_s * 242.0).astype(np.uint8), (rw, rh), interpolation=cv2.INTER_LINEAR)
+                # Плотная 100% непрозрачная маска внутри силуэта: фон не просвечивает сквозь лицо и тело!
+                m_sharp = np.clip((m_roi_s - 0.18) / 0.32, 0.0, 1.0)
+                m8_roi = cv2.resize((m_sharp * 255.0).astype(np.uint8), (rw, rh), interpolation=cv2.INTER_LINEAR)
             else:
-                m8_roi = np.full((rh, rw), 242, dtype=np.uint8)
-
-        if not ai_active and random.random() < 0.03 and (by1 - by0) > 70:
-            rh_box = by1 - by0
-            y0_g = random.randint(0, rh_box - 50)
-            hh_g = random.randint(8, min(36, rh_box - y0_g))
-            sh = random.randint(-22, 22)
-            person_roi[y0_g:y0_g + hh_g] = np.roll(person_roi[y0_g:y0_g + hh_g], sh, axis=1)
-            m8_roi[y0_g:y0_g + hh_g] = np.roll(m8_roi[y0_g:y0_g + hh_g], sh, axis=1)
+                m8_roi = np.full((rh, rw), 255, dtype=np.uint8)
 
         # Сверхбыстрое наложение cv2.blendLinear (0.4 мс)
         bg_roi = bg[by0:by1, bx0:bx1]

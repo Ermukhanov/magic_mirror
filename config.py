@@ -16,7 +16,7 @@ _DEFAULTS = {
     "height": 720,
     "pose_width": 384,
     "pose_height": 216,
-    "pose_complexity": 1,
+    "pose_complexity": 0,
     "game_time_sec": 60,
     "hold_select_sec": 1.0,
     "hold_action_sec": 0.20,
@@ -26,7 +26,7 @@ _DEFAULTS = {
     "show_fps": True,
     "fullscreen": True,
     "volume": 0.8,
-    "ai_transform": "auto",
+    "ai_transform": "off",
     "video_worlds": True,
     "fx_clips": True,
     "hero_art": True,
@@ -34,7 +34,7 @@ _DEFAULTS = {
     "rich_worlds": True,
     "sketch_conditioning": True,
     "hands_live": True,
-    "procedural_armor": False,
+    "procedural_armor": True,
 }
 
 

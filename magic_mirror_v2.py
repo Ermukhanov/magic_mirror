@@ -96,8 +96,13 @@ def main():
     last_idx, prev, fps = -1, time.perf_counter(), 30.0
     while True:
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
+        if key in (ord('q'), 27):  # 'q' или ESC
             break
+        try:
+            if cv2.getWindowProperty(win, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        except Exception:
+            pass
         if key == ord('r'):
             S["state"], S["hover"], S["hover_prog"], S["paused"] = "select", -1, 0.0, False
             S["last_hold_voice_t"] = time.perf_counter()
@@ -137,13 +142,13 @@ def main():
         if key == ord('m'):
             aud.toggle_mute()
         if key == ord('a'):
-            modes_ai = ("auto", "on", "off")
+            modes_ai = ("off", "auto", "on")
             cur_ai = str(config.AI_TRANSFORM).lower()
-            config.AI_TRANSFORM = modes_ai[(modes_ai.index(cur_ai) + 1) % len(modes_ai)] if cur_ai in modes_ai else "auto"
+            config.AI_TRANSFORM = modes_ai[(modes_ai.index(cur_ai) + 1) % len(modes_ai)] if cur_ai in modes_ai else "off"
             config.save_config_flags()
             if config.AI_TRANSFORM != "off" and ai_mgr is None:
                 try:
-                    ai_mgr = get_ai_manager()
+                    ai_mgr = get_ai_manager(force_start=True)
                 except Exception as e_ai:
                     logging.warning(f"Не удалось запустить фоновый поток ИИ: {e_ai}")
         if key == ord('w'):
@@ -351,13 +356,15 @@ def main():
 
         if SHOW_FPS:
             cv2.putText(out, f"{fps:.0f} FPS [{i18n.get_lang().upper()}]", (W - 185, H - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            cv2.putText(out, "[ESC / Q: Шығу (Выход)]", (20, H - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 210, 225), 1, cv2.LINE_AA)
         draw_ai_corner_indicator(out, ai_mgr, debug_mode=S.get("debug_mode", False), is_play_state=(S.get("state") == "play"), t=now)
         cv2.imshow(win, out)
     aud.stop_bgm()
-    try:
-        get_ai_manager().stop()
-    except Exception:
-        pass
+    if ai_mgr is not None:
+        try:
+            ai_mgr.stop()
+        except Exception:
+            pass
     cam.running = worker.running = False
     cv2.destroyAllWindows()
 

@@ -241,12 +241,6 @@ def draw_hero_headpiece(img, g, hero, t):
     glow = hero["glow"]
     acc = hero["accent"]
 
-    # Пользовательский PNG-ассет (если есть)
-    crown_png = load_hero_png(hid, "crown")
-    if crown_png is not None:
-        overlay_rgba_sprite(img, crown_png, nx, ny - hr * 1.55, hr * 2.1, hr * 1.35)
-        return
-
     if hid == "spider":
         # 1. ЧЕЛОВЕК-ПАУК: Маска-капюшон вокруг головы с паутиной и белыми глазами паука (лицо открыто!)
         pts_hood = []
@@ -523,7 +517,7 @@ def draw_front(img, g, hero, t, ai_active=False):
         cx, cy = (g["neck"][0] + g["hip"][0]) * 0.5, (g["neck"][1] + g["hip"][1]) * 0.5
         ang = math.degrees(math.atan2(rs[1] - ls[1], rs[0] - ls[0]))
         overlay_rgba_sprite(img, armor_png, cx, cy, sw * 1.45, th * 1.15, -ang)
-    elif not ai_active and procedural and hero["armor"]:
+    elif hero["armor"]:
         plate = [ls + [sw * .06, sw * .07], rs + [-sw * .06, sw * .07], lerp(rs, rh, .72) + [-sw * .04, 0], lerp(ls, lh, .72) + [sw * .04, 0]]
         apoly(img, plate, acc, 0.88, (255, 255, 255), 2)
 
@@ -546,16 +540,15 @@ def draw_front(img, g, hero, t, ai_active=False):
         cv2.circle(img, ip((a + b) / 2), max(6, int(sw * .065)), (255, 235, 120), -1, AA)
         cv2.circle(img, ip((a + b) / 2), max(6, int(sw * .065)), (40, 40, 50), 2, AA)
 
-    if hero["pauldron"] and armor_png is None:
+    if hero["pauldron"]:
         for s in (ls, rs):
             cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, acc, -1, AA)
             cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, (255, 255, 255), 2, AA)
 
     # Фирменная светящаяся эмблема на груди (реактор, паук, снежинка, батырский медальон)
-    if armor_png is None:
-        emblem(img, lerp(g["neck"], g["hip"], .33 if hero["armor"] else .4), sw * .2, hero["emblem"], hero, t)
+    emblem(img, lerp(g["neck"], g["hip"], .33 if hero["armor"] else .40), sw * .22, hero["emblem"], hero, t)
 
-    if hero["id"] == "astronaut" and armor_png is None:
+    if hero["id"] == "astronaut":
         cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, (235, 235, 240), int(sw * .07), AA)
         cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, glow, 2, AA)
 

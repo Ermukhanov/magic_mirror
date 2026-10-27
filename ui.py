@@ -154,9 +154,16 @@ def draw_come_closer_overlay(out, p, t):
 
 
 def render_select(frame, hand, hover, prog, t, p=None):
-    base_sky = stage_bg(HEROES[hover if hover >= 0 else 0])
-    draw_sky_parallax(base_sky, HEROES[hover if hover >= 0 else 0], t, is_flying=False)
-    out = cv2.addWeighted(base_sky, 0.40, frame, 0.65, 12)
+    # Яркое солнечное зеркало: лицо и силуэт ребёнка освещены чётко и естественно без затемнения
+    mean_val = float(cv2.mean(frame)[0] * 0.114 + cv2.mean(frame)[1] * 0.587 + cv2.mean(frame)[2] * 0.299)
+    gain = min(2.2, 160.0 / max(30.0, mean_val))
+    beta = int(24 * (gain - 0.5))
+    out = cv2.convertScaleAbs(frame, alpha=gain, beta=beta)
+
+    # Мягкая эстетичная полупрозрачная полоса сверху под заголовок (чтобы текст легко читался)
+    top_ov = out[:95, :].copy()
+    cv2.rectangle(top_ov, (0, 0), (W, 95), (15, 18, 28), -1)
+    out[:95, :] = cv2.addWeighted(top_ov, 0.45, out[:95, :], 0.55, 0)
 
     # Приветствие и заголовок на казахском
     txt(out, f"{tr('hello')} {tr('choose')}", W // 2, 18, 52, (255, 255, 255), center=True)
