@@ -53,6 +53,10 @@ class VideoWorldManager:
                 break
             if fr.shape[1] != W or fr.shape[0] != H:
                 fr = cv2.resize(fr, (W, H), interpolation=cv2.INTER_LINEAR)
+            mean_b = float(fr.mean())
+            if mean_b < 125.0:
+                scale_b = min(2.8, 135.0 / max(15.0, mean_b))
+                fr = cv2.convertScaleAbs(fr, alpha=scale_b, beta=int(18 * (scale_b - 0.5)))
             frames.append(fr)
         cap.release()
 
@@ -109,10 +113,6 @@ def get_stage_or_video_bg(hero, t, is_flying=False):
     """
     v_frame = get_world_manager().get_frame(hero["id"], t, is_flying=is_flying)
     if v_frame is not None:
-        mean_b = float(v_frame.mean())
-        if mean_b < 125.0:
-            scale_b = min(2.8, 135.0 / max(15.0, mean_b))
-            v_frame = cv2.convertScaleAbs(v_frame, alpha=scale_b, beta=int(18 * (scale_b - 0.5)))
         if is_flying:
             for i in range(8):
                 sx = int((i * 157 + t * 400) % W)
@@ -461,10 +461,18 @@ def aura(out, mask_small, hero, bbox=None):
         cv2.convertScaleAbs(ring, alpha=min(255, glow[1] * 1.9) / 255.0),
         cv2.convertScaleAbs(ring, alpha=min(255, glow[2] * 1.9) / 255.0),
     ])
-    col_full = cv2.resize(col_s, (W, H), interpolation=cv2.INTER_LINEAR)
     bx0, by0, bx1, by1 = bbox if bbox is not None else (0, 0, W, H)
-    roi = out[by0:by1, bx0:bx1]
-    out[by0:by1, bx0:bx1] = cv2.add(roi, col_full[by0:by1, bx0:bx1])
+    rw, rh = bx1 - bx0, by1 - by0
+    if rw > 0 and rh > 0:
+        sx0 = max(0, int(bx0 * SW / W))
+        sy0 = max(0, int(by0 * SH / H))
+        sx1 = min(SW, int(bx1 * SW / W) + 1)
+        sy1 = min(SH, int(by1 * SH / H) + 1)
+        crop_s = col_s[sy0:sy1, sx0:sx1]
+        if crop_s.size > 0:
+            col_roi = cv2.resize(crop_s, (rw, rh), interpolation=cv2.INTER_LINEAR)
+            roi = out[by0:by1, bx0:bx1]
+            out[by0:by1, bx0:bx1] = cv2.add(roi, col_roi)
 
 
 def draw_ai_vortex_animation(out, g, hero, t):
@@ -549,8 +557,7 @@ def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
                     # Передаём кадр в ИИ только тогда, когда GPU свободен и ждёт следующий кадр
                     if ai_mgr.needs_frame():
                         clean_s = clean_person_mask(mask_s, erode_px=2)
-                        clean_m_full = cv2.resize(clean_s, (W, H), interpolation=cv2.INTER_LINEAR)
-                        ai_mgr.submit_frame(frame, clean_m_full, p, (bx0, by0, bx1, by1), hero, int(t * 25))
+                        ai_mgr.submit_frame(frame, clean_s, p, (bx0, by0, bx1, by1), hero, int(t * 25))
                     if ai_mgr.is_active_for_hero(hero, t):
                         person_roi = ai_mgr.render_ai_person_roi(frame, p, hero, t, bbox=(bx0, by0, bx1, by1))
                         if person_roi is not None:

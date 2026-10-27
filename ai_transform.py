@@ -197,7 +197,10 @@ def warp_ai_to_live_pose(ai_img, p_ai, p_live, out_w, out_h):
     if ai_img is None:
         return np.zeros((out_h, out_w, 3), dtype=np.uint8)
     
-    ai_base = cv2.resize(ai_img, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
+    if ai_img.shape[1] == out_w and ai_img.shape[0] == out_h:
+        ai_base = ai_img
+    else:
+        ai_base = cv2.resize(ai_img, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
     if p_ai is None or p_live is None:
         return ai_base
 
@@ -629,8 +632,8 @@ class AITransformManager:
         rec = config.CFG.get("ai_recommended", {})
         self.ai_w = int(rec.get("width", 384))
         self.ai_h = int(rec.get("height", 512))
-        self.steps = int(rec.get("steps", 2))
-        self.strength = float(rec.get("strength", 0.48))
+        self.steps = int(rec.get("steps", 1))
+        self.strength = float(rec.get("strength", 0.45))
         self.ema_alpha = float(rec.get("ema_alpha", 0.62))
 
         self.lock = threading.Lock()
@@ -773,7 +776,16 @@ class AITransformManager:
             if self.req_idx == frame_idx:
                 return
             self.req_crop_bgr = frame_full[wy0:wy1, wx0:wx1].copy()
-            self.req_mask_crop = clean_mask_full[wy0:wy1, wx0:wx1].copy()
+            if clean_mask_full is not None:
+                if clean_mask_full.shape[1] == W:
+                    self.req_mask_crop = clean_mask_full[wy0:wy1, wx0:wx1].copy()
+                else:
+                    sw_m = clean_mask_full.shape[1]
+                    sx0 = max(0, int(wx0 * sw_m / W))
+                    sx1 = min(sw_m, int(wx1 * sw_m / W))
+                    self.req_mask_crop = clean_mask_full[:, sx0:sx1].copy()
+            else:
+                self.req_mask_crop = None
             if p_full is not None:
                 p_c = p_full.copy()
                 p_c[:, 0] -= wx0
@@ -808,25 +820,26 @@ class AITransformManager:
         if ai_bbox is not None:
             aw = max(4, ai_bbox[2] - ai_bbox[0])
             ah = max(4, ai_bbox[3] - ai_bbox[1])
-            ai_win_full = cv2.resize(ai_small, (aw, ah), interpolation=cv2.INTER_LINEAR)
+            scale_ai_x = float(self.ai_w) / float(aw)
+            scale_ai_y = float(self.ai_h) / float(ah)
 
             p_ai_crop = None
             if ai_p is not None:
                 p_ai_crop = ai_p.copy()
-                p_ai_crop[:, 0] -= ai_bbox[0]
-                p_ai_crop[:, 1] -= ai_bbox[1]
+                p_ai_crop[:, 0] = (p_ai_crop[:, 0] - ai_bbox[0]) * scale_ai_x
+                p_ai_crop[:, 1] = (p_ai_crop[:, 1] - ai_bbox[1]) * scale_ai_y
             p_live_crop = None
             if p_full is not None:
                 p_live_crop = p_full.copy()
-                p_live_crop[:, 0] -= ai_bbox[0]
-                p_live_crop[:, 1] -= ai_bbox[1]
+                p_live_crop[:, 0] = (p_live_crop[:, 0] - ai_bbox[0]) * scale_ai_x
+                p_live_crop[:, 1] = (p_live_crop[:, 1] - ai_bbox[1]) * scale_ai_y
 
-            ai_warped = warp_ai_to_live_pose(ai_win_full, p_ai_crop, p_live_crop, aw, ah)
+            ai_warped = warp_ai_to_live_pose(ai_small, p_ai_crop, p_live_crop, self.ai_w, self.ai_h)
 
-            rx0 = max(0, bx0 - ai_bbox[0])
-            ry0 = max(0, by0 - ai_bbox[1])
-            rx1 = min(aw, rx0 + rw)
-            ry1 = min(ah, ry0 + rh)
+            rx0 = max(0, int((bx0 - ai_bbox[0]) * scale_ai_x))
+            ry0 = max(0, int((by0 - ai_bbox[1]) * scale_ai_y))
+            rx1 = min(self.ai_w, max(rx0 + 1, int((bx1 - ai_bbox[0]) * scale_ai_x)))
+            ry1 = min(self.ai_h, max(ry0 + 1, int((by1 - ai_bbox[1]) * scale_ai_y)))
             if rx1 > rx0 and ry1 > ry0:
                 ai_roi = cv2.resize(ai_warped[ry0:ry1, rx0:rx1], (rw, rh), interpolation=cv2.INTER_LINEAR)
             else:
@@ -835,7 +848,8 @@ class AITransformManager:
             ai_roi = cv2.resize(ai_small, (rw, rh), interpolation=cv2.INTER_LINEAR)
 
         # 2. Фильтр резкости (unsharp mask) для чётких металлических граней
-        ai_sharp = cv2.addWeighted(ai_roi, 1.25, cv2.GaussianBlur(ai_roi, (0, 0), 2.0), -0.25, 0)
+        ai_blur = cv2.boxFilter(ai_roi, -1, (3, 3))
+        ai_sharp = cv2.addWeighted(ai_roi, 1.25, ai_blur, -0.25, 0)
 
         # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета)
         ai_bright = cv2.convertScaleAbs(ai_sharp, alpha=1.22, beta=20)
@@ -894,7 +908,7 @@ class AITransformManager:
             device = "cuda"
             torch.backends.cuda.matmul.allow_tf32 = True
             torch.backends.cudnn.allow_tf32 = True
-            torch.backends.cudnn.benchmark = True
+            torch.backends.cudnn.benchmark = False
 
             print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
             try:
@@ -1123,6 +1137,11 @@ class AITransformManager:
                     self.ai_ms = dt_ai * 1000.0
                     self.ai_fps = (1.0 / dt_ai) if self.ai_fps == 0 else (self.ai_fps * 0.72 + (1.0 / dt_ai) * 0.28)
                     self.vram_gb = vram_now
+
+                # Ограничение частоты фонового потока ИИ (~12 FPS) для защиты ноутбука от перегрева.
+                # Аффинный warp_ai_to_live_pose обеспечивает плавные 30-60 FPS на основном экране!
+                sleep_cool = max(0.005, 0.080 - dt_ai)
+                time.sleep(sleep_cool)
 
         except Exception as e:
             import traceback

@@ -134,10 +134,6 @@ def draw_back(img, g, hero, t):
         if overlay_rgba_sprite(img, back_png, cx, cy, sw * 2.4, th * 1.65, -ang):
             return
 
-    # Если процедурные доспехи отключены (по умолчанию PROCEDURAL_ARMOR=False) и PNG нет — ничего не рисуем
-    if not getattr(config, "PROCEDURAL_ARMOR", False):
-        return
-
     sway = math.sin(t * 3.5) * sw * 0.16
     if hero["id"] == "spider":
         c = (g["neck"] + g["hip"]) * 0.5
@@ -240,60 +236,64 @@ def draw_front(img, g, hero, t, ai_active=False):
     glow, acc = hero["glow"], hero["accent"]
     procedural = getattr(config, "PROCEDURAL_ARMOR", False)
 
-    # Если активно реальное ИИ-превращение (ai_active=True), ИИ сам детально отрисовал броню, эмблему и наручи на теле;
-    # поверх тела не перекрываем их плоским полигоном (рисуем только корону/нимб над головой и PNG-арт при наличии).
-    if not ai_active:
-        armor_png = load_hero_png(hero["id"], "armor")
-        if armor_png is not None:
-            cx, cy = (g["neck"][0] + g["hip"][0]) * 0.5, (g["neck"][1] + g["hip"][1]) * 0.5
-            ang = math.degrees(math.atan2(rs[1] - ls[1], rs[0] - ls[0]))
-            overlay_rgba_sprite(img, armor_png, cx, cy, sw * 1.45, th * 1.15, -ang)
-        elif procedural and hero["armor"]:
-            plate = [ls + [sw * .06, sw * .07], rs + [-sw * .06, sw * .07], lerp(rs, rh, .72) + [-sw * .04, 0], lerp(ls, lh, .72) + [sw * .04, 0]]
-            apoly(img, plate, acc, 0.88, (255, 255, 255), 2)
-            if hero["id"] == "spider":
-                c_ch = lerp(g["neck"], g["hip"], 0.35)
-                for a_i in (-0.5, 0.0, 0.5):
-                    cv2.line(img, ip(c_ch), ip(c_ch + [math.sin(a_i) * sw * 0.45, math.cos(a_i) * th * 0.35]), (40, 40, 190), 2, AA)
-            elif hero["id"] == "ladybug":
-                for dx, dy in ((-0.22, 0.22), (0.22, 0.22), (-0.15, 0.52), (0.15, 0.52), (0.0, 0.65)):
-                    sp = g["neck"] + np.array([dx * sw, dy * th])
-                    cv2.circle(img, ip(sp), max(4, int(sw * 0.055)), (25, 25, 30), -1, AA)
-            else:
-                belt_col = hero["cape"] if hero["cape"] is not None else glow
-                a, b = lerp(ls, lh, .62) + [sw * .04, 0], lerp(rs, rh, .62) + [-sw * .04, 0]
-                cv2.line(img, ip(a), ip(b), belt_col, max(3, int(sw * .05)), AA)
-                a, b = lerp(ls, lh, .78), lerp(rs, rh, .78)
-                cv2.line(img, ip(a), ip(b), (30, 30, 40), max(4, int(sw * .07)), AA)
-                cv2.circle(img, ip((a + b) / 2), int(sw * .06), (255, 255, 255), -1, AA)
+    armor_png = load_hero_png(hero["id"], "armor")
+    if armor_png is not None:
+        cx, cy = (g["neck"][0] + g["hip"][0]) * 0.5, (g["neck"][1] + g["hip"][1]) * 0.5
+        ang = math.degrees(math.atan2(rs[1] - ls[1], rs[0] - ls[0]))
+        overlay_rgba_sprite(img, armor_png, cx, cy, sw * 1.45, th * 1.15, -ang)
+    elif not ai_active and procedural and hero["armor"]:
+        plate = [ls + [sw * .06, sw * .07], rs + [-sw * .06, sw * .07], lerp(rs, rh, .72) + [-sw * .04, 0], lerp(ls, lh, .72) + [sw * .04, 0]]
+        apoly(img, plate, acc, 0.88, (255, 255, 255), 2)
 
-        if hero["pauldron"] and armor_png is None and procedural:
-            for s in (ls, rs):
-                cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, acc, -1, AA)
-                cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, (255, 255, 255), 2, AA)
+    # Узнаваемые фирменные аксессуары каждого персонажа (рисуются всегда поверх костюма/ИИ)
+    if hero["id"] == "spider":
+        c_ch = lerp(g["neck"], g["hip"], 0.35)
+        for a_i in (-0.55, -0.28, 0.0, 0.28, 0.55):
+            cv2.line(img, ip(c_ch), ip(c_ch + [math.sin(a_i) * sw * 0.52, math.cos(a_i) * th * 0.38]), (30, 30, 210), 2, AA)
+        for r_web in (int(sw * 0.18), int(sw * 0.32)):
+            cv2.ellipse(img, ip(c_ch), (r_web, int(r_web * 0.72)), 0, -60, 240, (30, 30, 210), 2, AA)
+    elif hero["id"] == "ladybug":
+        for dx, dy in ((-0.25, 0.18), (0.25, 0.18), (-0.16, 0.48), (0.16, 0.48), (0.0, 0.62), (-0.32, 0.35), (0.32, 0.35)):
+            sp = g["neck"] + np.array([dx * sw, dy * th])
+            cv2.circle(img, ip(sp), max(4, int(sw * 0.055)), (20, 20, 25), -1, AA)
+    elif hero["id"] in ("alpamys", "tomiris", "iron"):
+        # Золотой или титановый пояс с пряжкой
+        belt_col = hero["cape"] if hero["cape"] is not None else glow
+        a, b = lerp(ls, lh, .65) + [sw * .04, 0], lerp(rs, rh, .65) + [-sw * .04, 0]
+        cv2.line(img, ip(a), ip(b), (35, 145, 205), max(3, int(sw * .05)), AA)
+        cv2.circle(img, ip((a + b) / 2), max(6, int(sw * .065)), (255, 235, 120), -1, AA)
+        cv2.circle(img, ip((a + b) / 2), max(6, int(sw * .065)), (40, 40, 50), 2, AA)
 
-        if armor_png is None and procedural:
-            emblem(img, lerp(g["neck"], g["hip"], .33 if hero["armor"] else .4), sw * .2, hero["emblem"], hero, t)
+    if hero["pauldron"] and armor_png is None:
+        for s in (ls, rs):
+            cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, acc, -1, AA)
+            cv2.ellipse(img, ip(s), (int(sw * .24), int(sw * .17)), 0, 0, 360, (255, 255, 255), 2, AA)
 
-        if hero["id"] == "astronaut" and armor_png is None and procedural:
-            cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, (235, 235, 240), int(sw * .07), AA)
-            cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, glow, 2, AA)
+    # Фирменная светящаяся эмблема на груди (реактор, паук, снежинка, батырский медальон)
+    if armor_png is None:
+        emblem(img, lerp(g["neck"], g["hip"], .33 if hero["armor"] else .4), sw * .2, hero["emblem"], hero, t)
 
+    if hero["id"] == "astronaut" and armor_png is None:
+        cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, (235, 235, 240), int(sw * .07), AA)
+        cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, glow, 2, AA)
+
+    # Корона / Шлем / Нимб над головой
     hr = g["hr"]
     crown_png = load_hero_png(hero["id"], "crown")
     if crown_png is not None:
         overlay_rgba_sprite(img, crown_png, g["nose"][0], g["nose"][1] - hr * 1.75, hr * 1.8, hr * 1.1)
-    elif hero["crown"] and procedural:   # корона/диадема парит НАД головой, лицо открыто
+    elif hero["crown"]:
         b, wd = g["nose"] + [0, -hr * 1.55], hr * .75
         pts = [b + [-wd, 0], b + [-wd, -hr * .55], b + [-wd / 2, -hr * .2], b + [0, -hr * .75], b + [wd / 2, -hr * .2], b + [wd, -hr * .55], b + [wd, 0]]
         apoly(img, pts, acc, 1.0, (255, 255, 255), 2)
         for q in (pts[1], pts[3], pts[5]):
             cv2.circle(img, ip(q), max(3, int(hr * .1)), (255, 255, 255), -1, AA)
-    if hero["halo"] and procedural:
+    if hero["halo"]:
         c = g["nose"] + [0, -hr * 1.75 + math.sin(t * 3) * 4]
         cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, hero["glow"], 6, AA)
         cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, (255, 255, 255), 2, AA)
 
+    # Перчатки и наручи на запястьях
     glove_png = load_hero_png(hero["id"], "glove")
     for w, w_vis in ((g["lw"], g.get("lw_vis", 1.0)), (g["rw"], g.get("rw_vis", 1.0))):
         if w_vis < 0.45:
@@ -301,8 +301,6 @@ def draw_front(img, g, hero, t, ai_active=False):
         r = sw * .15 * (1 + .12 * math.sin(t * 8))
         if glove_png is not None:
             overlay_rgba_sprite(img, glove_png, w[0], w[1], r * 2.4, r * 2.4)
-        elif not ai_active and procedural:
-            cv2.circle(img, ip(w), int(r), glow, -1, AA)
-            cv2.circle(img, ip(w), int(r), (255, 255, 255), 3, AA)
         else:
-            cv2.circle(img, ip(w), int(r * 0.9), glow, 2, AA)
+            cv2.circle(img, ip(w), int(r), glow, -1, AA)
+            cv2.circle(img, ip(w), int(r), (255, 255, 255), 2, AA)

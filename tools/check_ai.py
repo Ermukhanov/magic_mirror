@@ -73,7 +73,7 @@ def run_test_inference(torch):
     device = "cuda"
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = False
 
     t0_load = time.perf_counter()
     try:
