@@ -14,7 +14,7 @@
   "fullscreen": true,
   "volume": 0.8,
   "game_layer": true,
-  "ai_transform": "off",
+  "ai_transform": "auto",
   "rich_worlds": true,
   "hero_art": true,
   "video_worlds": true,
@@ -22,7 +22,7 @@
   "sketch_conditioning": true,
   "hands_live": true,
   "procedural_armor": true,
-  "ai_mode": "off",
+  "ai_mode": "auto",
   "ai_regime": "A",
   "ai_recommended": {
     "gpu": "NVIDIA GeForce RTX 4050 Laptop GPU",

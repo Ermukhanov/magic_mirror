@@ -854,11 +854,11 @@ class AITransformManager:
         # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета без затемняющих полос)
         ai_costume = cv2.convertScaleAbs(ai_sharp, alpha=1.35, beta=28)
 
-        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с солнечным авто-освещением
+        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с солнечным дневным авто-освещением
         live_roi = frame_full[by0:by1, bx0:bx1]
         live_mean = float(cv2.mean(live_roi)[0] * 0.114 + cv2.mean(live_roi)[1] * 0.587 + cv2.mean(live_roi)[2] * 0.299)
-        scale_live = min(2.1, 148.0 / max(30.0, live_mean))
-        live_bright = cv2.convertScaleAbs(live_roi, alpha=scale_live, beta=int(24 * (scale_live - 0.5)))
+        scale_live = min(2.5, 165.0 / max(30.0, live_mean))
+        live_bright = cv2.convertScaleAbs(live_roi, alpha=scale_live, beta=int(26 * (scale_live - 0.5)))
         p_local = None
         if p_full is not None:
             p_local = p_full.copy()

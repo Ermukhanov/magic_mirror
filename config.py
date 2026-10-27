@@ -26,7 +26,7 @@ _DEFAULTS = {
     "show_fps": True,
     "fullscreen": True,
     "volume": 0.8,
-    "ai_transform": "off",
+    "ai_transform": "auto",
     "video_worlds": True,
     "fx_clips": True,
     "hero_art": True,
