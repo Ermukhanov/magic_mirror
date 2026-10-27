@@ -319,7 +319,8 @@ def compose_final_ai_half(ai_img_small, ai_p, live_half, clean_mask_half, p_half
 def main():
     parser = argparse.ArgumentParser(description="Демо ИИ-превращения Сиқырлы айна (Пункты 1-5)")
     parser.add_argument("--headless", action="store_true", help="Тестовый замер без GUI")
-    parser.add_argument("--save-preview", default="", help="Сохранить скриншот сравнения (живой кадр / эскиз / ИИ) в файл")
+    parser.add_argument("--save-preview", default="", help="Сохранить скриншот сравнения (живой кадр / ИИ) в файл")
+    parser.add_argument("--show-sketch", action="store_true", help="Показывать врезку эскиза (скрытая отладка [V])")
     args = parser.parse_args()
 
     ai_worker = DemoAIWorker(width=384, height=512)
@@ -439,11 +440,12 @@ def main():
                 p_half[26, :2] = (385, 690)
 
             right_half = compose_final_ai_half(ai_worker.out_img, ai_worker.out_p, live_half, mask_half, p_half, HEROES[0], hands_live=ai_worker.hands_live)
-            if ai_worker.last_sketch_preview is not None:
+            # Врезка эскиза скрыта по умолчанию; показывается только при явном флаге --show-sketch
+            if args.show_sketch and ai_worker.last_sketch_preview is not None:
                 sk_thumb = cv2.resize(ai_worker.last_sketch_preview, (168, 224))
                 live_half[H - 238:H - 14, 14:182] = sk_thumb
                 cv2.rectangle(live_half, (14, H - 238), (182, H - 14), (0, 235, 255), 2, AA)
-                txt(live_half, "ЭСКИЗ [E]", 98, H - 266, 20, (0, 255, 255), center=True)
+                txt(live_half, "ЭСКИЗ [V]", 98, H - 266, 20, (0, 255, 255), center=True)
 
             canvas = np.hstack([live_half, right_half])
             cv2.line(canvas, (640, 0), (640, H), (0, 255, 255), 3, AA)
@@ -460,10 +462,11 @@ def main():
         cam.running = pose_worker.running = False
         return
 
-    win = "Magic Mirror AI Demo [[/]: Strength | 1/2: Steps | E: Sketch | H/Tab: Hero | K: Hands | Q: Quit]"
+    win = "Magic Mirror AI Demo [[/]: Strength | 1/2: Steps | E: Sketch Cond | H/Tab: Hero | K: Hands | Q: Quit]"
     cv2.namedWindow(win, cv2.WINDOW_NORMAL)
 
     hero_idx = 0
+    show_sketch = False
     prev_t = time.perf_counter()
     ui_fps = 30.0
 
@@ -481,6 +484,8 @@ def main():
             ai_worker.strength = round(min(0.85, ai_worker.strength + 0.05), 2)
         elif key in (ord('e'), ord('E')):
             ai_worker.sketch_conditioning = not ai_worker.sketch_conditioning
+        elif key in (ord('v'), ord('V')):
+            show_sketch = not show_sketch
         elif key in (ord('k'), ord('K')):
             ai_worker.hands_live = not ai_worker.hands_live
         elif key in (ord('h'), ord('H'), 9, ord(' ')):
@@ -526,12 +531,12 @@ def main():
         else:
             right_half = live_half.copy()
 
-        # В левом нижнем углу показываем мини-превью входного эскиза костюма, который подаётся в ИИ
-        if sk_prev is not None and ai_worker.sketch_conditioning:
+        # Врезка эскиза на экран скрыта по умолчанию; показывается только при скрытой отладке клавишей V
+        if show_sketch and sk_prev is not None and ai_worker.sketch_conditioning:
             sk_thumb = cv2.resize(sk_prev, (168, 224))
             live_half[H - 238:H - 14, 14:182] = sk_thumb
             cv2.rectangle(live_half, (14, H - 238), (182, H - 14), (0, 235, 255), 2, AA)
-            txt(live_half, "ЭСКИЗ [E]", 98, H - 266, 20, (0, 255, 255), center=True)
+            txt(live_half, "ЭСКИЗ [V]", 98, H - 266, 20, (0, 255, 255), center=True)
 
         canvas = np.hstack([live_half, right_half])
         cv2.line(canvas, (640, 0), (640, H), (0, 255, 255), 3, AA)
@@ -541,7 +546,7 @@ def main():
         txt(canvas, f"КАМЕРА ({cam.backend_name}): {cam.cam_fps:.1f} FPS", 20, 10, 26, (80, 255, 140))
         txt(canvas, f"ИИ ({ai_worker.steps} шаг, str={ai_worker.strength:.2f}): {ai_worker.ai_fps:.1f} FPS ({ai_worker.ai_ms:.0f} мс) | VRAM: {vram_gb:.2f} ГБ",
             420, 10, 26, (0, 235, 255))
-        txt(canvas, f"Герой [1-8/H]: {hero_display_name(hero)} | Шаги [S]: {ai_worker.steps} | Эскиз [E]: {'ВКЛ' if ai_worker.sketch_conditioning else 'ВЫКЛ'} | Руки [K]: {'ЖИВЫЕ' if ai_worker.hands_live else 'ИИ'} | Сила [[ / ]]: {ai_worker.strength:.2f}",
+        txt(canvas, f"Герой [1-8/H]: {hero_display_name(hero)} | Шаги [S]: {ai_worker.steps} | Эскиз-кондишен [E]: {'ВКЛ' if ai_worker.sketch_conditioning else 'ВЫКЛ'} | Руки [K]: {'ЖИВЫЕ' if ai_worker.hands_live else 'ИИ'} | Сила [[ / ]]: {ai_worker.strength:.2f}",
             20, 46, 21, (235, 240, 255))
 
         cv2.imshow(win, canvas)

@@ -45,6 +45,7 @@ from ui import (
     CW, CH, card_rect, fake_pose, card_canvas, render_select, render_calib, render_end,
     draw_hud, check_lighting_and_warn, draw_calibration_silhouette, draw_come_closer_overlay,
     draw_teacher_panel, draw_debug_overlay, record_debug_pose, load_stats, record_game_stat,
+    draw_ai_corner_indicator,
 )
 
 logging.basicConfig(
@@ -68,9 +69,10 @@ def main():
     cam.start()
     worker = PoseWorker(cam)
     worker.start()
+    ai_mgr = None
     if str(config.AI_TRANSFORM).lower() != "off":
         try:
-            get_ai_manager()
+            ai_mgr = get_ai_manager()
         except Exception as e_ai:
             logging.warning(f"Не удалось запустить фоновый поток ИИ: {e_ai}")
     win = "Magic Mirror"
@@ -139,6 +141,11 @@ def main():
             cur_ai = str(config.AI_TRANSFORM).lower()
             config.AI_TRANSFORM = modes_ai[(modes_ai.index(cur_ai) + 1) % len(modes_ai)] if cur_ai in modes_ai else "auto"
             config.save_config_flags()
+            if config.AI_TRANSFORM != "off" and ai_mgr is None:
+                try:
+                    ai_mgr = get_ai_manager()
+                except Exception as e_ai:
+                    logging.warning(f"Не удалось запустить фоновый поток ИИ: {e_ai}")
         if key == ord('w'):
             config.VIDEO_WORLDS = not config.VIDEO_WORLDS
             config.RICH_WORLDS = config.VIDEO_WORLDS
@@ -344,6 +351,7 @@ def main():
 
         if SHOW_FPS:
             cv2.putText(out, f"{fps:.0f} FPS [{i18n.get_lang().upper()}]", (W - 185, H - 12), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        draw_ai_corner_indicator(out, ai_mgr, debug_mode=S.get("debug_mode", False), is_play_state=(S.get("state") == "play"), t=now)
         cv2.imshow(win, out)
     aud.stop_bgm()
     try:

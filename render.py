@@ -7,6 +7,7 @@
 """
 import os
 import math
+import time
 import random
 import threading
 from collections import deque
@@ -464,6 +465,56 @@ def aura(out, mask_small, hero, bbox=None):
     out[by0:by1, bx0:bx1] = cv2.add(cv2.subtract(roi, dark_full[by0:by1, bx0:bx1]), col_full[by0:by1, bx0:bx1])
 
 
+def draw_ai_vortex_animation(out, g, hero, t):
+    """
+    Анимация вихря превращения (transformation vortex / energy rings)
+    вокруг ребёнка во время ожидания готовности ИИ при ai_transform = 'on'.
+    """
+    neck, hip, sw, th = g["neck"], g["hip"], g["sw"], g["th"]
+    cx = int((neck[0] + hip[0]) * 0.5)
+    cy = int((neck[1] + hip[1]) * 0.5)
+    glow = hero.get("glow", (0, 255, 255))
+    accent = hero.get("accent", (255, 200, 50))
+
+    # 1. Вращающиеся кольца энергии вихря
+    for i in range(5):
+        ang = int((t * 200.0 + i * 45.0) % 360)
+        scale_r = 0.50 + 0.22 * math.sin(t * 3.2 + i * 1.1)
+        rx = max(12, int(sw * scale_r))
+        ry = max(6, int(rx * 0.38))
+        c_ring = glow if i % 2 == 0 else accent
+        cv2.ellipse(out, (cx, cy), (rx, ry), ang, 0, 360, c_ring, 2, AA)
+
+    # 2. Светящиеся спиральные частицы, закручивающиеся вокруг тела
+    for pi in range(10):
+        ang_p = t * 4.2 + pi * (2.0 * math.pi / 10.0)
+        r_dist = sw * (0.45 + 0.30 * math.sin(t * 2.5 + pi))
+        px = int(cx + math.cos(ang_p) * r_dist)
+        py = int(cy + math.sin(ang_p) * (r_dist * 0.55))
+        cv2.circle(out, (px, py), 3, (255, 255, 255), -1, AA)
+        cv2.circle(out, (px, py), 6, glow, 1, AA)
+
+    # 3. Пульсирующий бейдж «ИИ дайындалуда… / ИИ готовится…»
+    dots = "." * (int(t * 2.5) % 4)
+    vortex_txt = f"ИИ дайындалуда{dots} / ИИ готовится{dots}"
+    font_scale = 0.50
+    (tw, th_t), _ = cv2.getTextSize(vortex_txt, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
+    bw, bh = tw + 36, 34
+    bx0, by0 = cx - bw // 2, cy - bh // 2
+    bx1, by1 = bx0 + bw, by0 + bh
+
+    if 0 <= bx0 and bx1 <= W and 0 <= by0 and by1 <= H:
+        roi = out[by0:by1, bx0:bx1]
+        dark = np.full_like(roi, (12, 16, 24))
+        out[by0:by1, bx0:bx1] = cv2.addWeighted(dark, 0.82, roi, 0.18, 0)
+        cv2.rectangle(out, (bx0, by0), (bx1, by1), glow, 1, AA)
+        cv2.putText(
+            out, vortex_txt,
+            (bx0 + 18, (by0 + by1 + th_t) // 2 - 1),
+            cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), 1, AA
+        )
+
+
 def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
     g = geom(p)
     bg = get_stage_or_video_bg(hero, t, is_flying=is_flying)
@@ -483,11 +534,13 @@ def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
         bx0, by0, bx1, by1 = 0, 0, W, H
 
     ai_active = False
+    ai_waiting = False
+    ai_mode = str(config.AI_TRANSFORM).lower()
     if bx1 > bx0 and by1 > by0:
         person_roi = None
         m8_roi = None
         rw, rh = bx1 - bx0, by1 - by0
-        if str(config.AI_TRANSFORM).lower() != "off":
+        if ai_mode != "off":
             try:
                 ai_mgr = get_ai_manager()
                 if ai_mgr.is_enabled():
@@ -505,11 +558,18 @@ def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
                                 m8_roi = cv2.resize((m_roi_s * 248.0).astype(np.uint8), (rw, rh), interpolation=cv2.INTER_LINEAR)
                             else:
                                 m8_roi = np.full((rh, rw), 248, dtype=np.uint8)
+
+                # Режим strict "on": пока ИИ загружается или готовит первый кадр (до 60 сек)
+                if ai_mode == "on" and not ai_active:
+                    elapsed = time.perf_counter() - ai_mgr.start_time
+                    if elapsed < 60.0 and not ai_mgr.failed:
+                        ai_waiting = True
             except Exception as e_comp:
                 import traceback
                 print(f"[COMPOSE EXCEPTION] {e_comp}\n{traceback.format_exc()}")
                 person_roi = None
                 ai_active = False
+                ai_waiting = False
 
         if person_roi is None:
             person_roi = holo_person(frame, hero, t, g, bbox=(bx0, by0, bx1, by1))
@@ -533,5 +593,7 @@ def compose(frame, p, mask_s, hero, t, dt, parts, is_flying=False):
         bg[by0:by1, bx0:bx1] = cv2.blendLinear(person_roi, bg_roi, w_fg, 1.0 - w_fg)
     out = bg
     aura(out, mask_s, hero, bbox=(bx0, by0, bx1, by1))
-    draw_front(out, g, hero, t, ai_active=ai_active)
+    if ai_waiting:
+        draw_ai_vortex_animation(out, g, hero, t)
+    draw_front(out, g, hero, t, ai_active=(ai_active or ai_waiting))
     return out, g

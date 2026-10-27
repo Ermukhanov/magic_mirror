@@ -590,3 +590,81 @@ def draw_debug_overlay(out, p_raw, p_lead, S, fps, pose_latency_ms, magnet_targe
 
     if t - S.get("debug_rec_flash_t", 0.0) < 0.8:
         txt(out, f"SAVED TO debug_pose.json (#{saved_n})", W // 2, H - 140, 32, (80, 255, 120), center=True)
+
+
+def draw_ai_corner_indicator(out, ai_mgr, debug_mode=False, is_play_state=False, t=None):
+    """
+    Отрисовывает аккуратный индикатор статуса ИИ в углу экрана:
+    - Обычный режим: тонкий аккуратный бейдж «ИИ: загрузка… / ИИ: готов / ИИ: ошибка (причина)».
+    - Режим отладки (B): подробные метрики (FPS ИИ, задержка мс, расход VRAM).
+    """
+    if ai_mgr is None:
+        return
+
+    if t is None:
+        t = time.perf_counter()
+
+    try:
+        st = ai_mgr.get_status_info()
+    except Exception:
+        st = {
+            "status": "error",
+            "label": "ИИ: ошибка",
+            "color": (50, 50, 240),
+            "fps": 0.0,
+            "ms": 0.0,
+            "vram": 0.0,
+            "details": "ИИ: ошибка",
+        }
+
+    status_name = st.get("status", "ready")
+    base_col = st.get("color", (60, 230, 90))
+
+    if debug_mode:
+        text = st.get("details", st.get("label", "ИИ"))
+        font_scale = 0.42
+        thickness = 1
+        h_pill = 26
+    else:
+        text = st.get("label", "ИИ")
+        font_scale = 0.44
+        thickness = 1
+        h_pill = 24
+
+    (tw, th), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness)
+    w_pill = tw + 34
+
+    # Позиционирование в правом верхнем углу (в режиме игры смещаем под таймер)
+    x1 = W - 20
+    x0 = max(10, x1 - w_pill)
+    y0 = 68 if is_play_state else 16
+    y1 = y0 + h_pill
+
+    if y1 > H or x1 > W:
+        return
+
+    # Полупрозрачная тёмная подложка
+    roi = out[y0:y1, x0:x1]
+    bg_pill = np.full_like(roi, (14, 18, 26))
+    out[y0:y1, x0:x1] = cv2.addWeighted(bg_pill, 0.85, roi, 0.15, 0)
+
+    # Тонкая рамка с цветом статуса
+    border_col = tuple(int(c * 0.75) for c in base_col)
+    cv2.rectangle(out, (x0, y0), (x1, y1), border_col, 1, AA)
+
+    # Пульсирующий индикатор-светодиод
+    dot_cx = x0 + 13
+    dot_cy = (y0 + y1) // 2
+    if status_name == "loading":
+        pulse = 0.55 + 0.45 * abs(math.sin(t * 3.8))
+        dot_col = tuple(int(c * pulse) for c in base_col)
+    else:
+        dot_col = base_col
+
+    cv2.circle(out, (dot_cx, dot_cy), 4, dot_col, -1, AA)
+    cv2.circle(out, (dot_cx, dot_cy), 5, (255, 255, 255), 1, AA)
+
+    # Текст статуса
+    ty = (y0 + y1 + th) // 2 - 1
+    cv2.putText(out, text, (x0 + 24, ty), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (245, 248, 255), thickness, AA)
+

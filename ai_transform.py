@@ -637,7 +637,12 @@ class AITransformManager:
         self.running = True
         self.ready = False
         self.failed = False
+        self.status = "loading" if str(config.AI_TRANSFORM).lower() != "off" else "disabled"
+        self.error_msg_short = ""
         self.error_msg = ""
+        self.start_time = time.perf_counter()
+        self.ready_time = 0.0
+        self.device_name = "GPU"
 
         # Входная задача для GPU-потока
         self.req_crop_bgr = None
@@ -674,6 +679,55 @@ class AITransformManager:
         if mode == "off" or self.failed:
             return False
         return True
+
+    def get_status_info(self):
+        """Возвращает информацию для углового индикатора статуса ИИ."""
+        mode = str(config.AI_TRANSFORM).lower()
+        if mode == "off":
+            return {
+                "status": "disabled",
+                "label": "ИИ: выкл [A]",
+                "color": (150, 150, 150),
+                "fps": 0.0,
+                "ms": 0.0,
+                "vram": 0.0,
+                "details": "ИИ: выкл [A] (процедурный режим)",
+            }
+        if self.failed or self.status == "error":
+            reason = self.error_msg_short if self.error_msg_short else "сбой"
+            return {
+                "status": "error",
+                "label": f"ИИ: ошибка ({reason})",
+                "color": (50, 50, 240),
+                "fps": 0.0,
+                "ms": 0.0,
+                "vram": 0.0,
+                "details": f"ИИ: ошибка ({reason}) | откат",
+            }
+        if not self.ready:
+            elapsed = time.perf_counter() - self.start_time
+            return {
+                "status": "loading",
+                "label": "ИИ: загрузка…",
+                "color": (30, 205, 255),
+                "fps": 0.0,
+                "ms": 0.0,
+                "vram": 0.0,
+                "details": f"ИИ: загрузка ({elapsed:.0f}с) | SD-Turbo fp16",
+            }
+        with self.lock:
+            fps_val = self.ai_fps
+            ms_val = self.ai_ms
+            vram_val = self.vram_gb
+        return {
+            "status": "ready",
+            "label": "ИИ: готов",
+            "color": (60, 230, 90),
+            "fps": fps_val,
+            "ms": ms_val,
+            "vram": vram_val,
+            "details": f"ИИ: готов | {fps_val:.1f} FPS ({ms_val:.0f} мс) | VRAM: {vram_val:.1f} ГБ",
+        }
 
     def needs_frame(self):
         """Возвращает True только тогда, когда GPU-поток свободен и ждёт новый кадр."""
@@ -809,16 +863,27 @@ class AITransformManager:
         """Фоновый GPU-поток с SD-Turbo (fp16) + TAESD + CUDA Graph для всех 8 героев."""
         try:
             if not os.path.isdir(SD_TURBO_DIR) or not os.path.isdir(TAESD_DIR):
+                missing = []
+                if not os.path.isdir(SD_TURBO_DIR):
+                    missing.append("sd-turbo")
+                if not os.path.isdir(TAESD_DIR):
+                    missing.append("taesd")
                 self.failed = True
-                self.error_msg = "Модели sd-turbo / taesd не найдены в models/"
+                self.status = "error"
+                self.error_msg_short = "нет models/"
+                self.error_msg = f"Модели {', '.join(missing)} не найдены в {MODELS_DIR}"
+                print(f"[AI_TRANSFORM] Ошибка: {self.error_msg}")
                 logging.warning(f"[AI_TRANSFORM] {self.error_msg}")
                 return
 
             import torch
             if not torch.cuda.is_available():
                 self.failed = True
-                self.error_msg = "CUDA недоступна"
-                logging.warning("[AI_TRANSFORM] CUDA недоступна, откат на процедурный режим")
+                self.status = "error"
+                self.error_msg_short = "нет CUDA"
+                self.error_msg = "CUDA недоступна, видеокарта NVIDIA не найдена"
+                print(f"[AI_TRANSFORM] Ошибка: {self.error_msg}")
+                logging.warning(f"[AI_TRANSFORM] {self.error_msg}")
                 return
 
             from diffusers import StableDiffusionImg2ImgPipeline, AutoencoderTiny
@@ -927,8 +992,12 @@ class AITransformManager:
                 graphs[st_cnt] = (g_c, out_buf)
 
             self.ready = True
-            print("[AI_TRANSFORM] GPU-поток SD-Turbo + TAESD успешно инициализирован для 8 героев")
-            logging.info("[AI_TRANSFORM] GPU-поток SD-Turbo + TAESD успешно инициализирован для 8 героев")
+            self.status = "ready"
+            self.ready_time = time.perf_counter()
+            self.device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "GPU"
+            load_dt = self.ready_time - self.start_time
+            print(f"[AI_TRANSFORM] ИИ готов к работе ({self.device_name}, прогрев {load_dt:.1f} сек, SD-Turbo + TAESD)")
+            logging.info(f"[AI_TRANSFORM] GPU-поток SD-Turbo + TAESD успешно инициализирован ({self.device_name})")
 
             last_done_idx = -1
             prev_ema = None
@@ -1047,8 +1116,11 @@ class AITransformManager:
         except Exception as e:
             import traceback
             self.failed = True
+            self.status = "error"
+            self.error_msg_short = f"{type(e).__name__}"[:20]
             self.error_msg = f"{e}\n{traceback.format_exc()}"
-            print(f"[AI_TRANSFORM ERROR] {self.error_msg}")
+            print(f"[AI_TRANSFORM ERROR] Ошибка инициализации/работы ИИ: {e}")
+            print(f"[AI_TRANSFORM ERROR]\n{traceback.format_exc()}")
             logging.error(f"[AI_TRANSFORM ERROR] Откат на процедурный костюм: {e}")
 
 
