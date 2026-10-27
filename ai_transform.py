@@ -894,6 +894,7 @@ class AITransformManager:
             torch.backends.cudnn.allow_tf32 = True
             torch.backends.cudnn.benchmark = True
 
+            print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
             try:
                 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
                     SD_TURBO_DIR,
@@ -923,6 +924,7 @@ class AITransformManager:
             pipe.unet.set_attn_processor(AttnProcessor2_0())
             pipe.unet.to(memory_format=torch.channels_last)
             pipe.vae.to(memory_format=torch.channels_last)
+            print("[AI_TRANSFORM] Модели загружены в VRAM. Кодирование промптов 8 героев...")
 
             prompts_cfg = config.CFG.get("ai_prompts", HERO_PROMPTS)
             seeds_cfg = config.CFG.get("ai_hero_seeds", {})
@@ -961,9 +963,11 @@ class AITransformManager:
             static_t = torch.tensor([699, 349], device=device, dtype=torch.long)
             static_sig = torch.tensor([2.5, 1.1, 0.0], device=device, dtype=torch.float16)
 
-            # Захват CUDA Graph для 1 и 2 шагов
+            # Захват CUDA Graph для рабочего количества шагов (1 или 2)
             graphs = {}
-            for st_cnt in (1, 2):
+            st_target = 1 if self.steps == 1 else 2
+
+            def _build_graph(st_cnt):
                 def _step_fn(st=st_cnt):
                     lat = pipe.vae.encode(static_in).latents * scaling_factor
                     x = lat + static_n1 * static_sig[0]
@@ -983,13 +987,16 @@ class AITransformManager:
                 s_stream = torch.cuda.Stream()
                 s_stream.wait_stream(torch.cuda.current_stream())
                 with torch.cuda.stream(s_stream), torch.inference_mode():
-                    for _ in range(3):
+                    for _ in range(2):
                         out_buf = _step_fn()
                 torch.cuda.current_stream().wait_stream(s_stream)
                 g_c = torch.cuda.CUDAGraph()
                 with torch.cuda.graph(g_c), torch.inference_mode():
                     out_buf = _step_fn()
-                graphs[st_cnt] = (g_c, out_buf)
+                return g_c, out_buf
+
+            print(f"[AI_TRANSFORM] Прогрев и фиксация графа CUDA (steps={st_target})...")
+            graphs[st_target] = _build_graph(st_target)
 
             self.ready = True
             self.status = "ready"
@@ -1088,6 +1095,8 @@ class AITransformManager:
                         static_n2.copy_(n2)
                         prev_ema = None
 
+                    if steps not in graphs:
+                        graphs[steps] = _build_graph(steps)
                     g_c, out_buf = graphs[steps]
                     g_c.replay()
                     out_rgb = ((out_buf[0].permute(1, 2, 0).clamp(-1, 1) + 1.0) * 127.5).to(torch.uint8).cpu().numpy()
