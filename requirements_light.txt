@@ -1,0 +1,6 @@
+mediapipe==0.10.14
+opencv-python>=4.8.0
+numpy>=1.24.0
+pygame>=2.5.0
+pillow>=10.0.0
+edge-tts>=6.1.9
