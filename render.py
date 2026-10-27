@@ -105,9 +105,14 @@ def get_world_manager():
 def get_stage_or_video_bg(hero, t, is_flying=False):
     """
     Возвращает живой видео-мир (video_worlds: true) или процедурный сказочный фон с параллаксом.
+    Гарантирует праздничную солнечную яркость (без тёмных мрачных локаций).
     """
     v_frame = get_world_manager().get_frame(hero["id"], t, is_flying=is_flying)
     if v_frame is not None:
+        mean_b = float(v_frame.mean())
+        if mean_b < 125.0:
+            scale_b = min(2.8, 135.0 / max(15.0, mean_b))
+            v_frame = cv2.convertScaleAbs(v_frame, alpha=scale_b, beta=int(18 * (scale_b - 0.5)))
         if is_flying:
             for i in range(8):
                 sx = int((i * 157 + t * 400) % W)
@@ -118,7 +123,7 @@ def get_stage_or_video_bg(hero, t, is_flying=False):
     draw_sky_parallax(bg, hero, t, is_flying=is_flying)
     return bg
 yy = np.arange(2 * H)
-_prof = np.clip(255 * np.where(yy % 4 < 2, 1.0, 0.80) * (0.72 + 0.28 * (0.5 + 0.5 * np.cos(2 * np.pi * yy / (H / 2)))), 0, 255).astype(np.uint8)
+_prof = np.clip(np.where(yy % 4 < 2, 255, 245), 0, 255).astype(np.uint8)
 SCAN = np.repeat(np.repeat(_prof[:, None, None], W, 1), 3, 2)
 
 FIREWORK_COLORS = [
@@ -417,11 +422,11 @@ def holo_person(frame, hero, t, g, bbox=None):
     off = int(t * 140) % H
     s_roi = SCAN[off + by0:off + by1, bx0:bx1, 0]
 
-    gray = cv2.convertScaleAbs(cv2.cvtColor(f_roi, cv2.COLOR_BGR2GRAY), alpha=1.25, beta=12)
+    gray = cv2.convertScaleAbs(cv2.cvtColor(f_roi, cv2.COLOR_BGR2GRAY), alpha=1.35, beta=22)
     gray_scan = cv2.multiply(gray, s_roi, scale=1.0 / 255.0)
     holo = cv2.multiply(cv2.merge([gray_scan, gray_scan, gray_scan]), t_roi, scale=1.0 / 255.0)
     fl = 0.55 + 0.08 * random.random()
-    person_roi = cv2.addWeighted(f_roi, 0.62, holo, fl + 0.05, 0)
+    person_roi = cv2.addWeighted(f_roi, 0.78, holo, 0.42, 16)
     if person_roi.shape[1] > 6:
         person_roi[:, 3:, 2] = person_roi[:, :-3, 2]
         person_roi[:, :-3, 0] = person_roi[:, 3:, 0]
@@ -456,13 +461,10 @@ def aura(out, mask_small, hero, bbox=None):
         cv2.convertScaleAbs(ring, alpha=min(255, glow[1] * 1.9) / 255.0),
         cv2.convertScaleAbs(ring, alpha=min(255, glow[2] * 1.9) / 255.0),
     ])
-    outer_ring = cv2.subtract(big_outer, big_inner) // 3
-    dark_s = cv2.merge([outer_ring, outer_ring, outer_ring])
     col_full = cv2.resize(col_s, (W, H), interpolation=cv2.INTER_LINEAR)
-    dark_full = cv2.resize(dark_s, (W, H), interpolation=cv2.INTER_LINEAR)
     bx0, by0, bx1, by1 = bbox if bbox is not None else (0, 0, W, H)
     roi = out[by0:by1, bx0:bx1]
-    out[by0:by1, bx0:bx1] = cv2.add(cv2.subtract(roi, dark_full[by0:by1, bx0:bx1]), col_full[by0:by1, bx0:bx1])
+    out[by0:by1, bx0:bx1] = cv2.add(roi, col_full[by0:by1, bx0:bx1])
 
 
 def draw_ai_vortex_animation(out, g, hero, t):

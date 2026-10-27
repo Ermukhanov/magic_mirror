@@ -156,7 +156,7 @@ def draw_come_closer_overlay(out, p, t):
 def render_select(frame, hand, hover, prog, t, p=None):
     base_sky = stage_bg(HEROES[hover if hover >= 0 else 0])
     draw_sky_parallax(base_sky, HEROES[hover if hover >= 0 else 0], t, is_flying=False)
-    out = cv2.addWeighted(base_sky, 0.70, frame, 0.30, 0)
+    out = cv2.addWeighted(base_sky, 0.40, frame, 0.65, 12)
 
     # Приветствие и заголовок на казахском
     txt(out, f"{tr('hello')} {tr('choose')}", W // 2, 18, 52, (255, 255, 255), center=True)

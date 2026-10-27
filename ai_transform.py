@@ -28,97 +28,97 @@ MODELS_DIR = os.path.join(config.BASE_DIR, "models")
 SD_TURBO_DIR = os.path.join(MODELS_DIR, "sd-turbo")
 TAESD_DIR = os.path.join(MODELS_DIR, "taesd")
 
-# Промпты кинематографического качества для каждого из 8 героев
+# Промпты кинематографического качества для каждого из 8 героев (яркое праздничное освещение)
 HERO_PROMPTS = {
-    "alpamys": "masterpiece character art of a heroic Kazakh batyr child, shining polished gold armor plate with steppe ornaments, flowing rich red cape, golden vambraces, sharp heroic lighting, cinematic 8k masterpiece",
-    "tomiris": "masterpiece character art of a royal Saka warrior queen child, shining gold and purple armor plate, ruby medallion, royal purple cape, sharp heroic lighting, cinematic 8k masterpiece",
-    "spider": "masterpiece character art of a child superhero, vivid red and blue superhero suit, sharp black spiderweb texture and spider emblem, heroic lighting, cinematic 8k masterpiece",
-    "elsa": "masterpiece character art of a child ice princess, sparkling light blue crystal frost gown, glowing ice snowflake crystal bodice, translucent cape, cinematic 8k masterpiece",
-    "ladybug": "masterpiece character art of a child superheroine, vibrant red superhero suit with crisp bold black polka dots, high collar, cinematic 8k masterpiece",
-    "iron": "masterpiece character art of a child superhero, sleek metallic crimson and gold high-tech armor, glowing cyan chest reactor, heroic lighting, cinematic 8k masterpiece",
-    "astronaut": "masterpiece character art of a child astronaut, clean bright white pressurized space suit, telemetry chest control module, mission patches, cinematic 8k masterpiece",
-    "fairy": "masterpiece character art of a child magical forest fairy, glowing emerald green petal dress, rose corsage, shimmering translucent butterfly wings, cinematic 8k masterpiece",
+    "alpamys": "masterpiece character art of a heroic Kazakh batyr child, shining polished gold armor plate with steppe ornaments, flowing bright red cape, golden vambraces, bright vibrant daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "tomiris": "masterpiece character art of a royal Saka warrior queen child, shining gold and vibrant purple armor plate, ruby medallion, royal purple cape, bright vibrant daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "spider": "masterpiece character art of a child superhero, vivid bright red and electric blue superhero suit, sharp black spiderweb texture and spider emblem, bright daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "elsa": "masterpiece character art of a child ice princess, sparkling light blue crystal frost gown, glowing ice snowflake crystal bodice, translucent shimmering cape, bright vibrant daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "ladybug": "masterpiece character art of a child superheroine, vibrant scarlet red superhero suit with crisp bold black polka dots, high collar, bright daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "iron": "masterpiece character art of a child superhero, sleek metallic crimson and bright gold high-tech armor, glowing radiant cyan chest reactor, bright daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
+    "astronaut": "masterpiece character art of a child astronaut, pristine bright white pressurized space suit, telemetry chest control module, mission patches, bright sunny daylight lighting, brilliant colors, cinematic 8k masterpiece",
+    "fairy": "masterpiece character art of a child magical forest fairy, glowing emerald green petal dress, rose corsage, shimmering translucent rainbow butterfly wings, bright daylight lighting, brilliant bright colors, cinematic 8k masterpiece",
 }
-NEGATIVE_PROMPT = "bad anatomy, extra limbs, deformed hands, distorted face, blurry, ugly, low quality, artifacts, text, logo"
+NEGATIVE_PROMPT = "dark, underexposed, gloomy, dim, shadows, night, murky, silhouette, bad anatomy, extra limbs, deformed hands, distorted face, blurry, ugly, low quality, artifacts, text, logo"
 
-# Опорные цвета костюмов для 8 героев (глубокие, царские, кинематографичные тона BGR)
+# Опорные цвета костюмов для 8 героев (яркие, сочные, праздничные тона BGR)
 HERO_SKETCH_PALETTES = {
     "alpamys": dict(
-        tunic=(28, 30, 140),     # глубокий царский багровый кафтан
-        armor=(32, 145, 205),    # чеканное батырское золото
-        cape=(22, 24, 120),      # бархатный тёмно-алый плащ
-        belt=(25, 85, 160),      # тиснёный кожаный пояс с золотой пряжкой
-        bracer=(32, 145, 205),   # золотые наручи
-        trim=(50, 180, 235),     # античный золотой орнамент
-        bg_fill=(45, 75, 125),   # благородный фон
+        tunic=(35, 40, 220),     # яркий царский багряный кафтан
+        armor=(45, 195, 255),    # сияющее батырское золото
+        cape=(30, 35, 205),      # струящийся алый плащ
+        belt=(35, 110, 210),     # кожаный пояс с золотой пряжкой
+        bracer=(45, 195, 255),   # золотые наручи
+        trim=(80, 225, 255),     # античный золотой орнамент
+        bg_fill=(85, 120, 195),  # светлый фон
     ),
     "tomiris": dict(
-        tunic=(105, 30, 95),     # царский сакский пурпур
-        armor=(35, 145, 195),    # древнее сакское золото
-        cape=(85, 22, 75),       # глубокий пурпурный плащ
-        belt=(35, 145, 195),     # золотой пояс
-        bracer=(35, 145, 195),   # золотые наручи
-        trim=(55, 175, 230),     # золотая филигрань и рубин
-        bg_fill=(75, 55, 110),
+        tunic=(155, 45, 140),    # царский сакский пурпур
+        armor=(45, 195, 255),    # древнее сакское золото
+        cape=(125, 35, 110),     # глубокий пурпурный плащ
+        belt=(45, 195, 255),     # золотой пояс
+        bracer=(45, 195, 255),   # золотые наручи
+        trim=(80, 225, 255),     # золотая филигрань и рубин
+        bg_fill=(125, 95, 165),
     ),
     "spider": dict(
-        tunic=(145, 45, 20),     # глубокий полуночно-синий
-        armor=(25, 30, 175),     # благородный тёмно-алый паучий жилет
+        tunic=(210, 65, 35),     # яркий насыщенный синий
+        armor=(35, 45, 235),     # пламенный алый паучий жилет
         cape=None,
-        belt=(25, 30, 175),
-        bracer=(25, 30, 175),
-        trim=(20, 20, 22),       # обсидиановая паутина
-        bg_fill=(75, 40, 85),
+        belt=(35, 45, 235),
+        bracer=(35, 45, 235),
+        trim=(25, 25, 30),       # чёткая паутина
+        bg_fill=(120, 75, 130),
     ),
     "elsa": dict(
-        tunic=(225, 165, 80),    # кристальный сапфирово-лазурный
-        armor=(245, 205, 135),   # ледяной морозный корсет
-        cape=(235, 195, 120),    # струящийся полупрозрачный шлейф
-        belt=(240, 215, 155),
-        bracer=(235, 195, 125),
+        tunic=(255, 195, 100),   # кристальный лазурный
+        armor=(255, 230, 165),   # ледяной морозный корсет
+        cape=(255, 220, 145),    # струящийся полупрозрачный шлейф
+        belt=(255, 235, 185),
+        bracer=(255, 225, 155),
         trim=(255, 255, 255),    # сияющий алмазный кристалл
-        bg_fill=(165, 135, 85),
+        bg_fill=(210, 180, 130),
     ),
     "ladybug": dict(
-        tunic=(26, 30, 180),     # глубокий рубиново-алый костюм
-        armor=(28, 32, 185),
+        tunic=(35, 40, 235),     # сочный рубиново-алый костюм
+        armor=(35, 45, 245),
         cape=None,
-        belt=(22, 22, 25),
-        bracer=(26, 30, 180),
-        trim=(18, 18, 20),       # обсидиановые матовые точки
-        bg_fill=(45, 45, 110),
+        belt=(25, 25, 30),
+        bracer=(35, 40, 235),
+        trim=(20, 20, 25),       # матовые точки
+        bg_fill=(85, 85, 165),
     ),
     "iron": dict(
-        tunic=(25, 30, 145),     # глубокий титановый винно-красный
-        armor=(35, 145, 205),    # полированное золото и латунь
+        tunic=(35, 40, 215),     # титановый винно-красный
+        armor=(45, 195, 255),    # сияющее полированное золото
         cape=None,
-        belt=(28, 32, 135),
-        bracer=(28, 35, 155),
-        trim=(255, 220, 90),     # сияющий дуговой реактор
-        bg_fill=(45, 65, 120),
+        belt=(35, 45, 215),
+        bracer=(35, 45, 215),
+        trim=(255, 245, 120),    # сияющий дуговой реактор
+        bg_fill=(85, 105, 180),
     ),
     "astronaut": dict(
-        tunic=(215, 220, 225),   # композитный лунный белый
-        armor=(170, 175, 185),   # титановый модуль жизнеобеспечения
-        cape=(175, 180, 190),    # космический ранец
-        belt=(160, 65, 35),
-        bracer=(195, 200, 205),
-        trim=(170, 65, 35),      # кобальтово-синие эмблемы
-        bg_fill=(120, 125, 135),
+        tunic=(240, 245, 250),   # композитный лунный белый
+        armor=(200, 205, 215),   # титановый модуль
+        cape=(210, 215, 225),    # ранец
+        belt=(205, 95, 55),
+        bracer=(225, 230, 235),
+        trim=(220, 95, 55),      # синие эмблемы
+        bg_fill=(165, 170, 180),
     ),
     "fairy": dict(
-        tunic=(55, 150, 40),     # глубокий изумрудный мох
-        armor=(155, 80, 205),    # орхидейно-розовый корсаж
-        cape=(195, 135, 235),    # радужные крылья бабочки
-        belt=(50, 165, 205),
-        bracer=(145, 90, 195),
-        trim=(90, 220, 250),     # золотисто-янтарная пыльца
-        bg_fill=(95, 120, 90),
+        tunic=(80, 210, 65),     # изумрудный мох
+        armor=(205, 120, 255),   # орхидейно-розовый корсаж
+        cape=(240, 175, 255),    # радужные крылья бабочки
+        belt=(70, 215, 245),
+        bracer=(195, 130, 245),
+        trim=(120, 245, 255),    # золотисто-янтарная пыльца
+        bg_fill=(145, 185, 145),
     ),
 }
 
 _yy_ai = np.arange(2 * H)
-_scan_ai_u8 = np.where(_yy_ai % 4 < 2, 255, 232).astype(np.uint8)
+_scan_ai_u8 = np.where(_yy_ai % 4 < 2, 255, 248).astype(np.uint8)
 SCAN_AI = np.repeat(np.repeat(_scan_ai_u8[:, None, None], W, 1), 3, 2)
 
 
@@ -837,16 +837,18 @@ class AITransformManager:
         # 2. Фильтр резкости (unsharp mask) для чётких металлических граней
         ai_sharp = cv2.addWeighted(ai_roi, 1.25, cv2.GaussianBlur(ai_roi, (0, 0), 2.0), -0.25, 0)
 
-        # 3. Лёгкая голографическая стилизация (сканлайны ~10% + хроматический сдвиг 1 px)
+        # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета)
+        ai_bright = cv2.convertScaleAbs(ai_sharp, alpha=1.22, beta=20)
         off_y = int(t * 120) % H
         scan_roi = SCAN_AI[off_y + by0:off_y + by1, bx0:bx1]
-        ai_holo = cv2.multiply(ai_sharp, scan_roi, scale=1.0 / 255.0)
+        ai_holo = cv2.multiply(ai_bright, scan_roi, scale=1.0 / 255.0)
         if rw > 6:
             ai_holo[:, 1:, 2] = ai_holo[:, :-1, 2]
             ai_holo[:, :-1, 0] = ai_holo[:, 1:, 0]
 
-        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук
+        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с лёгким авто-освещением
         live_roi = frame_full[by0:by1, bx0:bx1]
+        live_bright = cv2.convertScaleAbs(live_roi, alpha=1.12, beta=12)
         p_local = None
         if p_full is not None:
             p_local = p_full.copy()
@@ -856,7 +858,7 @@ class AITransformManager:
         face_hands_m = compute_face_and_hands_mask(
             rh, rw, p_local, hands_live=bool(config.HANDS_LIVE)
         ).astype(np.float32)
-        person_roi = cv2.blendLinear(live_roi, ai_holo, face_hands_m, 1.0 - face_hands_m)
+        person_roi = cv2.blendLinear(live_bright, ai_holo, face_hands_m, 1.0 - face_hands_m)
         return person_roi
 
     def _gpu_worker_loop(self):

@@ -112,6 +112,12 @@ class Cam(threading.Thread):
             f = cv2.flip(f, 1)
             if f.shape[1] != W or f.shape[0] != H:
                 f = cv2.resize(f, (W, H))
+
+            # Автоматическая адаптивная яркость камеры (защита от тусклых комнат в детском саду)
+            mean_b = float(f.mean())
+            if mean_b < 112.0:
+                scale_cam = min(1.70, 122.0 / max(20.0, mean_b))
+                f = cv2.convertScaleAbs(f, alpha=scale_cam, beta=int(14 * (scale_cam - 0.5)))
             now = time.perf_counter()
             dt = max(1e-3, now - prev_t)
             prev_t = now

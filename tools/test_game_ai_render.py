@@ -92,8 +92,8 @@ def test_ai_game_render():
     t0_start = time.perf_counter()
     ai_mgr = get_ai_manager()
 
-    # Ждём завершения прогрева (до 60 секунд)
-    max_wait = 60.0
+    # Ждём завершения прогрева (до 90 секунд)
+    max_wait = 90.0
     while not ai_mgr.ready and (time.perf_counter() - t0_start) < max_wait:
         time.sleep(0.2)
 

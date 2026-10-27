@@ -193,36 +193,38 @@ def create_sample_raw_world(hero_id, out_path, num_frames=240):
                 cv2.ellipse(frame, (fx, 190), (10, int(f_h * 0.65)), 0, 0, 360, (120, 240, 255), -1, AA)
 
         elif hero_id == "spider":
-            # Ночной мегаполис, освещённые небоскрёбы, лучи прожекторов, луна
-            frame[:] = (35, 20, 15)
+            # Солнечный дневной мегаполис, лазурное небо, стеклянные небоскрёбы и праздничное конфетти
+            for y in range(H_WORLD):
+                alpha = y / float(H_WORLD)
+                frame[y, :] = [int(245 * (1 - alpha) + 190 * alpha), int(200 * (1 - alpha) + 140 * alpha), int(110 * (1 - alpha) + 60 * alpha)]
             # Небоскрёбы
             for idx, bx in enumerate(range(0, W_WORLD, 110)):
                 h_b = int(320 + math.sin(idx * 1.7) * 140)
-                cv2.rectangle(frame, (bx, H_WORLD - h_b), (bx + 95, H_WORLD), (50, 35, 25), -1, AA)
-                # Окна
+                cv2.rectangle(frame, (bx, H_WORLD - h_b), (bx + 95, H_WORLD), (180, 155, 140), -1, AA)
+                # Окна с солнечными бликами
                 for wy in range(H_WORLD - h_b + 20, H_WORLD - 20, 32):
                     for wx in range(bx + 12, bx + 85, 22):
                         lit = (idx * 7 + wx + wy + int(t * 0.5)) % 5 != 0
-                        cv2.rectangle(frame, (wx, wy), (wx + 10, wy + 16), (120, 220, 255) if lit else (20, 15, 10), -1)
+                        cv2.rectangle(frame, (wx, wy), (wx + 10, wy + 16), (255, 245, 180) if lit else (210, 190, 175), -1)
             # Луч прожектора
             ang_s = math.sin(t * 1.4) * 0.4
             p_top = (int(W_WORLD * 0.5 + math.sin(ang_s) * 450), 0)
-            cv2.line(frame, (W_WORLD // 2, H_WORLD), p_top, (180, 180, 220), 12, AA)
+            cv2.line(frame, (W_WORLD // 2, H_WORLD), p_top, (255, 255, 240), 10, AA)
 
         elif hero_id == "elsa":
-            # Ледяная пещера, полярное сияние (Aurora Borealis), кристаллы и падающий снег
+            # Сверкающий кристальный ледяной замок, яркое полярное сияние, кристаллы и снег
             for y in range(H_WORLD):
                 alpha = y / float(H_WORLD)
-                frame[y, :] = [int(180 * (1 - alpha) + 90 * alpha), int(120 * (1 - alpha) + 40 * alpha), int(45 * (1 - alpha) + 15 * alpha)]
+                frame[y, :] = [int(255 * (1 - alpha) + 195 * alpha), int(230 * (1 - alpha) + 155 * alpha), int(160 * (1 - alpha) + 90 * alpha)]
             # Аврора
             for k in range(5):
                 wave_y = int(180 + math.sin(t * 1.8 + k * 1.2) * 55)
-                cv2.ellipse(frame, (W_WORLD // 2, wave_y), (W_WORLD // 2, 45), 0, 0, 360, (230, 255, 120), 4, AA)
+                cv2.ellipse(frame, (W_WORLD // 2, wave_y), (W_WORLD // 2, 45), 0, 0, 360, (230, 255, 180), 4, AA)
             # Ледяные кристаллы
             for ix in range(80, W_WORLD, 180):
                 cr_h = int(160 + math.sin(ix * 0.3) * 60)
                 pts_cr = np.array([[ix, H_WORLD], [ix + 25, H_WORLD - cr_h], [ix + 50, H_WORLD]], np.int32)
-                cv2.fillPoly(frame, [pts_cr], (245, 225, 175), AA)
+                cv2.fillPoly(frame, [pts_cr], (255, 240, 205), AA)
                 cv2.polylines(frame, [pts_cr], True, (255, 255, 255), 2, AA)
             # Снежинки
             for s_i in range(35):
@@ -234,65 +236,71 @@ def create_sample_raw_world(hero_id, out_path, num_frames=240):
             # Парижский закат, силуэт Эйфелевой башни, летящие лепестки
             for y in range(H_WORLD):
                 alpha = y / float(H_WORLD)
-                frame[y, :] = [int(190 * (1 - alpha) + 80 * alpha), int(130 * (1 - alpha) + 40 * alpha), int(230 * (1 - alpha) + 180 * alpha)]
+                frame[y, :] = [int(235 * (1 - alpha) + 130 * alpha), int(185 * (1 - alpha) + 80 * alpha), int(255 * (1 - alpha) + 210 * alpha)]
             # Башня
             tx = W_WORLD - 320
             pts_t = np.array([[tx - 65, H_WORLD], [tx - 16, 260], [tx - 4, 140], [tx + 4, 140], [tx + 16, 260], [tx + 65, H_WORLD]], np.int32)
-            cv2.fillPoly(frame, [pts_t], (55, 40, 50), AA)
+            cv2.fillPoly(frame, [pts_t], (125, 95, 110), AA)
             # Лепестки
             for p_i in range(25):
                 px = int((p_i * 123 + t * 75) % W_WORLD)
                 py = int((p_i * 81 + math.sin(t * 3.0 + p_i) * 45 + t * 40) % H_WORLD)
-                cv2.ellipse(frame, (px, py), (8, 4), int(t * 45 + p_i * 20), 0, 360, (160, 140, 245), -1, AA)
+                cv2.ellipse(frame, (px, py), (8, 4), int(t * 45 + p_i * 20), 0, 360, (210, 180, 255), -1, AA)
 
         elif hero_id == "iron":
-            # Киберпанк-лаборатория, вращающиеся кольца реактора, неоновые сетки
-            frame[:] = (25, 20, 25)
+            # Светлая высокотехнологичная лаборатория с золотым реактором и светящимися панелями
+            for y in range(H_WORLD):
+                alpha = y / float(H_WORLD)
+                frame[y, :] = [int(220 * (1 - alpha) + 160 * alpha), int(205 * (1 - alpha) + 145 * alpha), int(180 * (1 - alpha) + 130 * alpha)]
             # Сетка перспективы пола
             for gy in range(420, H_WORLD, 28):
-                cv2.line(frame, (0, gy), (W_WORLD, gy), (80, 60, 40), 1, AA)
+                cv2.line(frame, (0, gy), (W_WORLD, gy), (255, 235, 190), 1, AA)
             for gx in range(0, W_WORLD + 100, 90):
-                cv2.line(frame, (W_WORLD // 2, 380), (gx, H_WORLD), (80, 60, 40), 1, AA)
+                cv2.line(frame, (W_WORLD // 2, 380), (gx, H_WORLD), (255, 235, 190), 1, AA)
             # Голографический реактор
             cx, cy = W_WORLD // 2, 280
             for r_ring in (70, 115, 160):
                 rot = t * 2.5 * (1 if r_ring % 2 == 0 else -1)
-                cv2.ellipse(frame, (cx, cy), (r_ring, int(r_ring * 0.45)), math.degrees(rot), 0, 360, (255, 210, 80), 3, AA)
-            cv2.circle(frame, (cx, cy), 32, (255, 240, 180), -1, AA)
+                cv2.ellipse(frame, (cx, cy), (r_ring, int(r_ring * 0.45)), math.degrees(rot), 0, 360, (255, 225, 110), 3, AA)
+            cv2.circle(frame, (cx, cy), 36, (255, 255, 220), -1, AA)
 
         elif hero_id == "astronaut":
-            # Глубокий космос, планета Земля, звёздные туманности, вращающиеся спутники
-            frame[:] = (18, 12, 10)
+            # Солнечная околоземная орбита, гигантская сияющая Земля и восход солнца
+            for y in range(H_WORLD):
+                alpha = y / float(H_WORLD)
+                frame[y, :] = [int(190 * (1 - alpha) + 110 * alpha), int(140 * (1 - alpha) + 65 * alpha), int(60 * (1 - alpha) + 25 * alpha)]
             # Звёзды
             for st_i in range(60):
                 st_x = int((st_i * 137) % W_WORLD)
                 st_y = int((st_i * 89) % H_WORLD)
                 shimmer = 0.5 + 0.5 * math.sin(t * 4.0 + st_i)
-                cv2.circle(frame, (st_x, st_y), 2 if shimmer > 0.8 else 1, (int(255 * shimmer), int(255 * shimmer), 255), -1)
+                cv2.circle(frame, (st_x, st_y), 2 if shimmer > 0.8 else 1, (255, 255, 255), -1)
             # Земля в углу
             e_x, e_y, e_r = W_WORLD - 180, 160, 140
-            cv2.circle(frame, (e_x, e_y), e_r, (210, 150, 40), -1, AA)
-            cv2.circle(frame, (e_x, e_y), e_r + 8, (255, 220, 120), 4, AA)
-            # Пролетающий астероид/спутник
+            cv2.circle(frame, (e_x, e_y), e_r, (235, 185, 80), -1, AA)
+            cv2.circle(frame, (e_x, e_y), e_r + 8, (255, 240, 180), 4, AA)
+            # Пролетающий спутник
             sat_x = int((t * 110) % (W_WORLD + 200)) - 100
             sat_y = int(H_WORLD * 0.65 + math.sin(t * 1.5) * 40)
-            cv2.rectangle(frame, (sat_x - 18, sat_y - 8), (sat_x + 18, sat_y + 8), (220, 220, 225), -1, AA)
-            cv2.line(frame, (sat_x - 45, sat_y), (sat_x + 45, sat_y), (255, 180, 60), 4, AA)
+            cv2.rectangle(frame, (sat_x - 18, sat_y - 8), (sat_x + 18, sat_y + 8), (245, 245, 250), -1, AA)
+            cv2.line(frame, (sat_x - 45, sat_y), (sat_x + 45, sat_y), (255, 220, 120), 4, AA)
 
         else:  # fairy
-            # Сказочный волшебный лес, биолюминесцентные грибы, мерцающие светлячки
+            # Солнечный волшебный лес, биолюминесцентные цветы, мерцающие светлячки
             for y in range(H_WORLD):
                 alpha = y / float(H_WORLD)
-                frame[y, :] = [int(45 * (1 - alpha) + 20 * alpha), int(95 * (1 - alpha) + 60 * alpha), int(30 * (1 - alpha) + 15 * alpha)]
-            # Гигантские светящиеся грибы
+                frame[y, :] = [int(150 * (1 - alpha) + 85 * alpha), int(225 * (1 - alpha) + 160 * alpha), int(120 * (1 - alpha) + 70 * alpha)]
+            # Светящиеся волшебные грибы и цветы
             for mx in (180, W_WORLD // 2, W_WORLD - 220):
                 my = int(H_WORLD - 120 + math.sin(mx) * 30)
-                cv2.ellipse(frame, (mx, my), (85, 45), 0, 180, 360, (220, 140, 255), -1, AA)
-                cv2.rectangle(frame, (mx - 14, my), (mx + 14, H_WORLD), (160, 210, 180), -1, AA)
+                cv2.ellipse(frame, (mx, my), (85, 45), 0, 180, 360, (245, 180, 255), -1, AA)
+                cv2.rectangle(frame, (mx - 14, my), (mx + 14, H_WORLD), (200, 235, 210), -1, AA)
             # Волшебная пыльца
             for f_i in range(40):
                 fx = int((f_i * 91 + math.cos(t * 2.2 + f_i) * 50) % W_WORLD)
                 fy = int((f_i * 67 + math.sin(t * 2.8 + f_i) * 60) % H_WORLD)
+                glow = 0.5 + 0.5 * math.sin(t * 5.0 + f_i)
+                cv2.circle(frame, (fx, fy), max(2, int(4 * glow)), (220, 255, 255), -1, AA)
                 glow = 0.5 + 0.5 * math.sin(t * 5.0 + f_i)
                 cv2.circle(frame, (fx, fy), max(2, int(4 * glow)), (180, 255, 255), -1, AA)
 
@@ -404,7 +412,7 @@ def main():
     # 1. Проверяем / создаём сырые миры
     for hid in heroes:
         raw_file = find_raw_file(raw_worlds, hid)
-        if not raw_file and args.gen_samples:
+        if (not raw_file or args.force) and args.gen_samples:
             sample_path = os.path.join(raw_worlds, f"{hid}.mp4")
             create_sample_raw_world(hid, sample_path)
             raw_file = sample_path
