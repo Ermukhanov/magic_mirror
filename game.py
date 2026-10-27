@@ -632,17 +632,79 @@ def game_fx(out, p, g, hero, t, dt, S):
                 get_audio().play_sfx("hit")
                 spawn_firework(S["fireworks"], s["pos"][0], s["pos"][1], count=18)
 
+    # 1. СВЕТЯЩАЯСЯ МАГИЧЕСКАЯ АУРА ВОКРУГ РУК РЕБЁНКА + МАГНИТНЫЙ ЗАХВАТ (HERO HAND MAGNET)
     for w_pt in (g["lw"], g["rw"]):
+        pulse_r = int(32 + 6 * math.sin(t * 8.0))
+        cv2.circle(out, ip(w_pt), pulse_r, hero["glow"], 3, AA)
+        cv2.circle(out, ip(w_pt), max(4, pulse_r - 4), (255, 255, 255), 2, AA)
+        for i_sp in range(4):
+            a_sp = t * 6.0 + i_sp * (math.pi / 2.0)
+            sp_x = int(w_pt[0] + math.cos(a_sp) * (pulse_r + 8))
+            sp_y = int(w_pt[1] + math.sin(a_sp) * (pulse_r + 8))
+            cv2.circle(out, (sp_x, sp_y), 3, (255, 255, 255), -1, AA)
+
         for s in S["stars"]:
-            if s["alive"] and math.hypot(s["pos"][0] - w_pt[0], s["pos"][1] - w_pt[1]) < 68:
+            if not s["alive"]:
+                continue
+            dist_s = math.hypot(s["pos"][0] - w_pt[0], s["pos"][1] - w_pt[1])
+            # Магнитный захват с расстояния 220 px: молния энергии притягивает звезду прямо в ладонь!
+            if dist_s < 220.0:
+                cv2.line(out, ip(w_pt), ip(s["pos"]), hero["glow"], 4, AA)
+                cv2.line(out, ip(w_pt), ip(s["pos"]), (255, 255, 255), 2, AA)
+                pull_spd = min(0.48, 10.5 * dt)
+                s["pos"][0] += (w_pt[0] - s["pos"][0]) * pull_spd
+                s["pos"][1] += (w_pt[1] - s["pos"][1]) * pull_spd
+
+            # Комфортное поглощение при касании (радиус 82 px)
+            if dist_s < 82.0:
                 s["alive"] = False
                 if s.get("kind") == "star":
                     S["stars_collected"] = S.get("stars_collected", 0) + 1
                 else:
                     S["monsters_defeated"] = S.get("monsters_defeated", 0) + 1
-                add_score_and_combo(S, 5, t, s["pos"])
+                add_score_and_combo(S, 10, t, s["pos"])
                 get_audio().play_sfx("hit")
-                spawn_firework(S["fireworks"], s["pos"][0], s["pos"][1], count=20)
+                spawn_firework(S["fireworks"], s["pos"][0], s["pos"][1], count=26)
+
+    # 2. ВОЛШЕБНЫЕ ПОРТАЛЫ СИЛЫ (SUPER POWER PORTALS)
+    portal = S.get("portal")
+    if portal and portal.get("alive"):
+        p_pos = portal["pos"]
+        p_kind = portal["kind"]
+        p_age = t - portal["t0"]
+        p_r = int(76 + 8 * math.sin(t * 5.5))
+        p_col = (60, 240, 255) if p_kind == "beam" else ((120, 255, 80) if p_kind == "fly" else (255, 140, 240))
+        cv2.circle(out, ip(p_pos), p_r + 14, p_col, 5, AA)
+        cv2.circle(out, ip(p_pos), p_r, (255, 255, 255), 3, AA)
+        for i_r in range(6):
+            a_r = t * 4.2 + i_r * (math.pi / 3.0)
+            cv2.circle(out, (int(p_pos[0] + math.cos(a_r) * p_r), int(p_pos[1] + math.sin(a_r) * p_r)), 6, (255, 255, 255), -1, AA)
+
+        p_hint = "✋ СӘУЛЕ ШАШ! / СТРЕЛЯЙ ЛУЧОМ!" if p_kind == "beam" else ("🦅 ҚАНАТ ЖАЙ! / ВЗЛЕТАЙ!" if p_kind == "fly" else "🛡️ СИҚЫРЛЫ ҚАЛҚАН! / ЩИТ!")
+        txt(out, p_hint, int(p_pos[0]), max(35, int(p_pos[1] - p_r - 26)), 28, (255, 255, 255), center=True)
+
+        hit_portal = False
+        if p_kind == "fly" and "fly" in active:
+            hit_portal = True
+        elif p_kind == "shield" and "shield" in active:
+            hit_portal = True
+        elif p_kind == "beam" and acts["beams"]:
+            for bw, bd in acts["beams"]:
+                v_pb = np.array(p_pos) - bw
+                if np.dot(v_pb, bd) > 0 and abs(v_pb[0] * bd[1] - v_pb[1] * bd[0]) < 110:
+                    hit_portal = True
+                    break
+
+        if hit_portal:
+            portal["alive"] = False
+            add_score_and_combo(S, 35, t, p_pos)
+            get_audio().play_sfx("victory")
+            get_audio().play_voice("awesome", force=True)
+            spawn_firework(S["fireworks"], p_pos[0], p_pos[1], count=45)
+            spawn_firework(S["fireworks"], p_pos[0] - 60, p_pos[1] - 30, count=30)
+            spawn_firework(S["fireworks"], p_pos[0] + 60, p_pos[1] - 30, count=30)
+        elif p_age > 12.0:
+            portal["alive"] = False
 
     if "beam" in active:
         txt(out, tr("beam_bang"), W // 2, 70, 76, glow, center=True)
@@ -715,9 +777,10 @@ def update_stars(out, S, dt):
         if s["alive"]:
             if s.get("kind") == "star":
                 col_s = (255, 235, 160) if frozen else (0, 230, 255)
-                apoly(out, star_pts(s["pos"], 38, rot=now * 2.0), col_s, 1.0, (255, 255, 255), 2)
+                apoly(out, star_pts(s["pos"], 44, rot=now * 2.2), col_s, 1.0, (255, 255, 255), 3)
+                cv2.circle(out, ip(s["pos"]), 10, (255, 255, 255), -1, AA)
             else:
-                draw_cute_monster(out, s["pos"][0], s["pos"][1], 36, s.get("col", (80, 95, 245)), frozen=frozen, t=now)
+                draw_cute_monster(out, s["pos"][0], s["pos"][1], 42, s.get("col", (80, 95, 245)), frozen=frozen, t=now)
 
     rem = []
     for s in S["stars"]:
@@ -730,6 +793,19 @@ def update_stars(out, S, dt):
     S["stars"] = rem
 
     elapsed = now - S.get("start", now)
+    # Спавн супер-порталов каждые 13 секунд
+    if S.get("portal") is None or not S["portal"].get("alive"):
+        last_p_t = S.get("last_portal_t", 0.0)
+        if (now - last_p_t) > 13.0 and elapsed > 4.0:
+            p_kinds = ["beam", "fly", "shield"]
+            S["portal"] = dict(
+                pos=[float(random.choice([280, W // 2, W - 280])), float(180)],
+                kind=random.choice(p_kinds),
+                t0=now,
+                alive=True,
+            )
+            S["last_portal_t"] = now
+
     if elapsed > config.GAME_TIME * 0.45 and S.get("boss") is None:
         S["boss"] = dict(
             pos=[float(W // 2), 145.0],

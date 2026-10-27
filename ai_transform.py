@@ -851,18 +851,14 @@ class AITransformManager:
         ai_blur = cv2.boxFilter(ai_roi, -1, (3, 3))
         ai_sharp = cv2.addWeighted(ai_roi, 1.25, ai_blur, -0.25, 0)
 
-        # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета)
-        ai_bright = cv2.convertScaleAbs(ai_sharp, alpha=1.22, beta=20)
-        off_y = int(t * 120) % H
-        scan_roi = SCAN_AI[off_y + by0:off_y + by1, bx0:bx1]
-        ai_holo = cv2.multiply(ai_bright, scan_roi, scale=1.0 / 255.0)
-        if rw > 6:
-            ai_holo[:, 1:, 2] = ai_holo[:, :-1, 2]
-            ai_holo[:, :-1, 0] = ai_holo[:, 1:, 0]
+        # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета без затемняющих полос)
+        ai_costume = cv2.convertScaleAbs(ai_sharp, alpha=1.35, beta=28)
 
-        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с лёгким авто-освещением
+        # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с солнечным авто-освещением
         live_roi = frame_full[by0:by1, bx0:bx1]
-        live_bright = cv2.convertScaleAbs(live_roi, alpha=1.12, beta=12)
+        live_mean = float(cv2.mean(live_roi)[0] * 0.114 + cv2.mean(live_roi)[1] * 0.587 + cv2.mean(live_roi)[2] * 0.299)
+        scale_live = min(2.1, 148.0 / max(30.0, live_mean))
+        live_bright = cv2.convertScaleAbs(live_roi, alpha=scale_live, beta=int(24 * (scale_live - 0.5)))
         p_local = None
         if p_full is not None:
             p_local = p_full.copy()
@@ -872,7 +868,7 @@ class AITransformManager:
         face_hands_m = compute_face_and_hands_mask(
             rh, rw, p_local, hands_live=bool(config.HANDS_LIVE)
         ).astype(np.float32)
-        person_roi = cv2.blendLinear(live_bright, ai_holo, face_hands_m, 1.0 - face_hands_m)
+        person_roi = cv2.blendLinear(live_bright, ai_costume, face_hands_m, 1.0 - face_hands_m)
         return person_roi
 
     def _gpu_worker_loop(self):

@@ -229,8 +229,290 @@ def emblem(img, c, r, kind, hero, t):
         cv2.circle(img, (ci[0] - int(r * .25), ci[1] - int(r * .25)), int(r * .2), (255, 255, 255), -1, AA)
 
 
+def draw_hero_headpiece(img, g, hero, t):
+    """
+    Фирменные головные уборы, маски и шлемы для всех 8 персонажей.
+    ВАЖНО: Лицо, глаза, носик и улыбка ребёнка ВСЕГДА остаются полностью открытыми и яркими!
+    """
+    hid = hero["id"]
+    nx, ny = g["nose"][0], g["nose"][1]
+    hr = max(18.0, float(g["hr"]))
+    sw = g["sw"]
+    glow = hero["glow"]
+    acc = hero["accent"]
+
+    # Пользовательский PNG-ассет (если есть)
+    crown_png = load_hero_png(hid, "crown")
+    if crown_png is not None:
+        overlay_rgba_sprite(img, crown_png, nx, ny - hr * 1.55, hr * 2.1, hr * 1.35)
+        return
+
+    if hid == "spider":
+        # 1. ЧЕЛОВЕК-ПАУК: Маска-капюшон вокруг головы с паутиной и белыми глазами паука (лицо открыто!)
+        pts_hood = []
+        n_seg = 18
+        r_out_x, r_out_y = hr * 1.25, hr * 1.45
+        r_in_x, r_in_y = hr * 0.88, hr * 1.05
+        for i_s in range(n_seg + 1):
+            ang = math.pi * (0.85 + 1.30 * (i_s / float(n_seg)))
+            pts_hood.append([nx + math.cos(ang) * r_out_x, ny + math.sin(ang) * r_out_y])
+        for i_s in range(n_seg + 1):
+            ang = math.pi * (2.15 - 1.30 * (i_s / float(n_seg)))
+            pts_hood.append([nx + math.cos(ang) * r_in_x, ny + math.sin(ang) * r_in_y])
+        pts_hood_arr = np.array(pts_hood, np.int32)
+        cv2.fillPoly(img, [pts_hood_arr], (25, 25, 220), AA)
+        cv2.polylines(img, [pts_hood_arr], True, (20, 20, 25), 3, AA)
+
+        for w_ang in (-0.45, -0.22, 0.0, 0.22, 0.45):
+            p_top = (int(nx + math.sin(w_ang) * hr * 1.25), int(ny - math.cos(w_ang) * hr * 1.45))
+            p_bot = (int(nx + math.sin(w_ang) * hr * 0.88), int(ny - math.cos(w_ang) * hr * 1.05))
+            cv2.line(img, p_top, p_bot, (20, 20, 25), 2, AA)
+        for r_arc in (hr * 1.02, hr * 1.20, hr * 1.38):
+            cv2.ellipse(img, (int(nx), int(ny)), (int(r_arc * 0.88), int(r_arc)), 0, -135, -45, (20, 20, 25), 2, AA)
+
+        # Белые паучьи глаза на висках с чёрным контуром
+        ey_y = ny - hr * 0.62
+        for s_k in (-1, 1):
+            eye_pts = np.array([
+                [int(nx + s_k * hr * 0.42), int(ey_y + hr * 0.08)],
+                [int(nx + s_k * hr * 1.05), int(ey_y - hr * 0.32)],
+                [int(nx + s_k * hr * 0.90), int(ey_y + hr * 0.22)],
+            ], np.int32)
+            cv2.fillPoly(img, [eye_pts], (255, 255, 255), AA)
+            cv2.polylines(img, [eye_pts], True, (20, 20, 25), 3, AA)
+
+    elif hid == "iron":
+        # 2. ТЕМІР БАТЫР (IRON MAN): Шлем с открытым забралом + голографический HUD
+        helm_pts = np.array([
+            [int(nx - hr * 1.08), int(ny - hr * 0.45)],
+            [int(nx - hr * 0.95), int(ny - hr * 1.35)],
+            [int(nx - hr * 0.45), int(ny - hr * 1.55)],
+            [int(nx + hr * 0.45), int(ny - hr * 1.55)],
+            [int(nx + hr * 0.95), int(ny - hr * 1.35)],
+            [int(nx + hr * 1.08), int(ny - hr * 0.45)],
+            [int(nx + hr * 0.82), int(ny - hr * 0.70)],
+            [int(nx - hr * 0.82), int(ny - hr * 0.70)],
+        ], np.int32)
+        cv2.fillPoly(img, [helm_pts], (30, 40, 195), AA)
+        cv2.polylines(img, [helm_pts], True, (50, 215, 255), 3, AA)
+
+        brow_pts = np.array([
+            [int(nx - hr * 0.65), int(ny - hr * 0.70)],
+            [int(nx - hr * 0.45), int(ny - hr * 1.15)],
+            [int(nx + hr * 0.45), int(ny - hr * 1.15)],
+            [int(nx + hr * 0.65), int(ny - hr * 0.70)],
+            [int(nx), int(ny - hr * 0.78)],
+        ], np.int32)
+        cv2.fillPoly(img, [brow_pts], (50, 215, 255), AA)
+        cv2.polylines(img, [brow_pts], True, (255, 255, 255), 2, AA)
+
+        for s_k in (-1, 1):
+            chk_pts = np.array([
+                [int(nx + s_k * hr * 0.95), int(ny - hr * 0.50)],
+                [int(nx + s_k * hr * 1.18), int(ny + hr * 0.20)],
+                [int(nx + s_k * hr * 0.92), int(ny + hr * 0.55)],
+                [int(nx + s_k * hr * 0.78), int(ny - hr * 0.10)],
+            ], np.int32)
+            cv2.fillPoly(img, [chk_pts], (30, 40, 195), AA)
+            cv2.polylines(img, [chk_pts], True, (50, 215, 255), 2, AA)
+
+        hud_c = (255, 240, 60)
+        for s_k in (-1, 1):
+            hx = int(nx + s_k * hr * 0.75)
+            hy = int(ny - hr * 0.35)
+            cv2.ellipse(img, (hx, hy), (int(hr * 0.32), int(hr * 0.32)), 0, -50 if s_k == -1 else 130, 50 if s_k == -1 else 230, hud_c, 2, AA)
+            cv2.line(img, (hx - int(hr * 0.15), hy), (hx + int(hr * 0.15), hy), hud_c, 1, AA)
+
+    elif hid == "alpamys":
+        # 3. АЛПАМЫС БАТЫР: Богатырский шлем «Дулыға» с перьями «Үкі» и золотым налобником
+        top_y = int(ny - hr * 2.30)
+        brow_y = int(ny - hr * 0.72)
+        helm_pts = np.array([
+            [int(nx - hr * 1.05), brow_y],
+            [int(nx - hr * 0.85), int(ny - hr * 1.45)],
+            [int(nx - hr * 0.35), int(ny - hr * 2.05)],
+            [int(nx), top_y],
+            [int(nx + hr * 0.35), int(ny - hr * 2.05)],
+            [int(nx + hr * 0.85), int(ny - hr * 1.45)],
+            [int(nx + hr * 1.05), brow_y],
+            [int(nx), int(brow_y - hr * 0.15)],
+        ], np.int32)
+        cv2.fillPoly(img, [helm_pts], (180, 195, 205), AA)
+        cv2.polylines(img, [helm_pts], True, (45, 175, 235), 4, AA)
+
+        brow_pts = np.array([
+            [int(nx - hr * 1.02), brow_y],
+            [int(nx + hr * 1.02), brow_y],
+            [int(nx + hr * 0.85), int(brow_y - hr * 0.30)],
+            [int(nx), int(brow_y - hr * 0.42)],
+            [int(nx - hr * 0.85), int(brow_y - hr * 0.30)],
+        ], np.int32)
+        cv2.fillPoly(img, [brow_pts], (45, 175, 235), AA)
+        cv2.polylines(img, [brow_pts], True, (255, 255, 255), 2, AA)
+        cv2.circle(img, (int(nx), int(brow_y - hr * 0.20)), max(4, int(hr * 0.12)), (25, 25, 200), -1, AA)
+
+        sway = math.sin(t * 4.5) * hr * 0.18
+        for f_i in (-2, -1, 0, 1, 2):
+            ang_f = f_i * 0.22 + sway * 0.08
+            f_len = hr * (0.85 + 0.15 * math.cos(f_i))
+            p_base = (int(nx), top_y)
+            p_tip = (int(nx + math.sin(ang_f) * f_len + sway), int(top_y - math.cos(ang_f) * f_len))
+            cv2.line(img, p_base, p_tip, (255, 255, 255), max(4, int(hr * 0.14)), AA)
+            cv2.circle(img, p_tip, max(3, int(hr * 0.10)), (255, 245, 220), -1, AA)
+
+        for s_k in (-1, 1):
+            mail_pts = np.array([
+                [int(nx + s_k * hr * 0.95), brow_y],
+                [int(nx + s_k * hr * 1.15), int(ny + hr * 0.40)],
+                [int(nx + s_k * hr * 0.82), int(ny + hr * 0.50)],
+                [int(nx + s_k * hr * 0.72), int(ny - hr * 0.10)],
+            ], np.int32)
+            cv2.fillPoly(img, [mail_pts], (150, 160, 175), AA)
+            cv2.polylines(img, [mail_pts], True, (220, 230, 240), 2, AA)
+
+    elif hid == "tomiris":
+        # 4. ТОМИРИС: Золотая сакская царская тиара-венец с крупным рубином
+        brow_y = int(ny - hr * 0.70)
+        top_y = int(ny - hr * 1.85)
+        tiara_pts = np.array([
+            [int(nx - hr * 1.10), brow_y],
+            [int(nx - hr * 0.85), int(ny - hr * 1.35)],
+            [int(nx - hr * 0.45), int(ny - hr * 1.65)],
+            [int(nx), top_y],
+            [int(nx + hr * 0.45), int(ny - hr * 1.65)],
+            [int(nx + hr * 0.85), int(ny - hr * 1.35)],
+            [int(nx + hr * 1.10), brow_y],
+            [int(nx), int(brow_y - hr * 0.22)],
+        ], np.int32)
+        cv2.fillPoly(img, [tiara_pts], (45, 185, 245), AA)
+        cv2.polylines(img, [tiara_pts], True, (255, 255, 255), 3, AA)
+
+        ruby_c = (int(nx), int(ny - hr * 1.10))
+        cv2.circle(img, ruby_c, max(6, int(hr * 0.22)), (30, 20, 230), -1, AA)
+        cv2.circle(img, ruby_c, max(6, int(hr * 0.22)), (255, 220, 110), 3, AA)
+        cv2.circle(img, (ruby_c[0] - 2, ruby_c[1] - 2), max(2, int(hr * 0.08)), (255, 255, 255), -1, AA)
+
+        for s_k in (-1, 1):
+            px0 = int(nx + s_k * hr * 1.05)
+            py0 = brow_y
+            for p_i in range(3):
+                py_d = py0 + int(p_i * hr * 0.25)
+                cv2.circle(img, (px0, py_d), max(3, int(hr * 0.08)), (45, 185, 245), -1, AA)
+                cv2.circle(img, (px0, py_d), max(3, int(hr * 0.08)), (255, 255, 255), 1, AA)
+
+    elif hid == "elsa":
+        # 5. ЭЛЬЗА: Хрустальная ледяная диадема с 5 кристаллами и снежинками
+        brow_y = int(ny - hr * 0.65)
+        ice_col = (255, 240, 185)
+        spikes = [
+            (0.0, 1.95, hr * 0.18),
+            (-0.42, 1.65, hr * 0.15),
+            (0.42, 1.65, hr * 0.15),
+            (-0.85, 1.35, hr * 0.12),
+            (0.85, 1.35, hr * 0.12),
+        ]
+        for dx_k, h_k, w_k in spikes:
+            sp_pts = np.array([
+                [int(nx + dx_k * hr - w_k), brow_y],
+                [int(nx + dx_k * hr), int(ny - hr * h_k)],
+                [int(nx + dx_k * hr + w_k), brow_y],
+            ], np.int32)
+            cv2.fillPoly(img, [sp_pts], ice_col, AA)
+            cv2.polylines(img, [sp_pts], True, (255, 255, 255), 2, AA)
+
+        cv2.ellipse(img, (int(nx), brow_y), (int(hr * 0.95), int(hr * 0.18)), 0, -180, 0, (255, 255, 255), 4, AA)
+
+        sn_c = (int(nx), int(ny - hr * 1.15))
+        for i_sn in range(6):
+            ang_sn = i_sn * math.pi / 3.0
+            p_sn = (int(sn_c[0] + math.cos(ang_sn) * hr * 0.22), int(sn_c[1] + math.sin(ang_sn) * hr * 0.22))
+            cv2.line(img, sn_c, p_sn, (255, 255, 255), 2, AA)
+
+        for i_st in range(6):
+            a_st = t * 2.8 + i_st * (2.0 * math.pi / 6.0)
+            st_x = int(nx + math.cos(a_st) * hr * 1.15)
+            st_y = int(ny - hr * 1.45 + math.sin(a_st * 1.4) * hr * 0.35)
+            cv2.circle(img, (st_x, st_y), 3, (255, 255, 255), -1, AA)
+            cv2.circle(img, (st_x, st_y), 6, ice_col, 1, AA)
+
+    elif hid == "ladybug":
+        # 6. ЛЕДИБАГ: Маска супергероини с точками + усики на ободке
+        mask_y = int(ny - hr * 0.35)
+        mw, mh = int(hr * 0.95), int(hr * 0.36)
+        for s_k in (-1, 1):
+            m_cx = int(nx + s_k * hr * 0.45)
+            cv2.ellipse(img, (m_cx, mask_y), (mw // 2 + 4, mh), -10 * s_k, 0, 360, (35, 35, 235), -1, AA)
+            cv2.ellipse(img, (m_cx, mask_y), (mw // 2 + 4, mh), -10 * s_k, 0, 360, (20, 20, 25), 2, AA)
+            cv2.circle(img, (int(m_cx + s_k * hr * 0.28), mask_y - 6), max(3, int(hr * 0.08)), (20, 20, 25), -1, AA)
+            cv2.circle(img, (int(m_cx - s_k * hr * 0.08), mask_y + 8), max(2, int(hr * 0.06)), (20, 20, 25), -1, AA)
+        cv2.line(img, (int(nx - hr * 0.18), mask_y), (int(nx + hr * 0.18), mask_y), (35, 35, 235), 5, AA)
+
+        top_h = int(ny - hr * 1.30)
+        for s_k in (-1, 1):
+            bob_ant = math.sin(t * 6.5 + s_k) * hr * 0.14
+            p_b = (int(nx + s_k * hr * 0.35), top_h)
+            p_m = (int(nx + s_k * hr * 0.65), int(top_h - hr * 0.45))
+            p_t = (int(nx + s_k * hr * 0.75 + bob_ant), int(top_h - hr * 0.75))
+            cv2.line(img, p_b, p_m, (20, 20, 25), 3, AA)
+            cv2.line(img, p_m, p_t, (20, 20, 25), 3, AA)
+            cv2.circle(img, p_t, max(4, int(hr * 0.12)), (35, 35, 235), -1, AA)
+            cv2.circle(img, p_t, max(4, int(hr * 0.12)), (255, 255, 255), 1, AA)
+
+    elif hid == "astronaut":
+        # 7. ҒАРЫШКЕР (ASTRONAUT): Шлем скафандра с открытым золотистым стеклом и прожекторами
+        h_cx, h_cy = int(nx), int(ny - hr * 0.20)
+        rx_out, ry_out = int(hr * 1.35), int(hr * 1.45)
+        cv2.ellipse(img, (h_cx, h_cy), (rx_out, ry_out), 0, -165, -15, (225, 230, 240), 18, AA)
+        cv2.ellipse(img, (h_cx, h_cy), (rx_out, ry_out), 0, -165, -15, (120, 130, 145), 2, AA)
+        cv2.ellipse(img, (h_cx, h_cy), (int(hr * 1.15), int(hr * 1.25)), 0, 0, 360, (50, 215, 255), 4, AA)
+
+        for s_k in (-1, 1):
+            lx = int(h_cx + s_k * hr * 1.35)
+            ly = int(h_cy - hr * 0.10)
+            cv2.circle(img, (lx, ly), max(6, int(hr * 0.18)), (240, 245, 255), -1, AA)
+            cv2.circle(img, (lx, ly), max(6, int(hr * 0.18)), (50, 215, 255), 2, AA)
+            cv2.circle(img, (lx, ly), max(3, int(hr * 0.09)), (255, 255, 255), -1, AA)
+            cone_pts = np.array([
+                [lx, ly],
+                [int(lx + s_k * hr * 0.85), int(ly - hr * 0.45)],
+                [int(lx + s_k * hr * 0.85), int(ly + hr * 0.45)],
+            ], np.int32)
+            apoly(img, cone_pts, (255, 255, 220), 0.22)
+
+    elif hid == "fairy":
+        # 8. ПЕРІ (FAIRY): Волшебный венок из цветов, эльфийские ушки и пыльца
+        brow_y = int(ny - hr * 0.70)
+        for s_k in (-1, 1):
+            ear_pts = np.array([
+                [int(nx + s_k * hr * 0.95), int(ny - hr * 0.25)],
+                [int(nx + s_k * hr * 1.55), int(ny - hr * 0.75)],
+                [int(nx + s_k * hr * 1.05), int(ny + hr * 0.20)],
+            ], np.int32)
+            cv2.fillPoly(img, [ear_pts], (215, 175, 235), AA)
+            cv2.polylines(img, [ear_pts], True, (255, 255, 255), 2, AA)
+            cv2.circle(img, (int(nx + s_k * hr * 1.05), int(ny + hr * 0.22)), 3, (255, 255, 255), -1, AA)
+
+        fl_cols = [(225, 160, 255), (80, 240, 255), (130, 255, 120), (255, 180, 200), (255, 245, 130)]
+        for i_fl in range(7):
+            frac = (i_fl - 3) / 3.0
+            fx = int(nx + frac * hr * 0.92)
+            fy = int(brow_y - math.cos(frac * 1.2) * hr * 0.25)
+            c_fl = fl_cols[i_fl % len(fl_cols)]
+            cv2.circle(img, (fx, fy), max(5, int(hr * 0.16)), c_fl, -1, AA)
+            cv2.circle(img, (fx, fy), max(2, int(hr * 0.07)), (255, 255, 255), -1, AA)
+
+        cv2.ellipse(img, (int(nx), brow_y), (int(hr * 0.95), int(hr * 0.18)), 0, -180, 0, (80, 240, 255), 2, AA)
+
+        for i_p in range(8):
+            ang_p = t * 3.2 + i_p * (2.0 * math.pi / 8.0)
+            px_f = int(nx + math.cos(ang_p) * hr * 1.25)
+            py_f = int(ny - hr * 0.85 + math.sin(ang_p * 1.5) * hr * 0.45)
+            cv2.circle(img, (px_f, py_f), 3, (255, 255, 255), -1, AA)
+            cv2.circle(img, (px_f, py_f), 5, (120, 245, 255), 1, AA)
+
+
 def draw_front(img, g, hero, t, ai_active=False):
-    """На теле (ниже лица): броня, эмблема, перчатки, корона/нимб НАД головой. Лицо всегда открыто!"""
+    """На теле (ниже лица): броня, эмблема, перчатки, шлемы/маски НАД и ВОКРУГ головы. Лицо всегда открыто!"""
     sw, th = g["sw"], g["th"]
     ls, rs, lh, rh = g["ls"], g["rs"], g["lh"], g["rh"]
     glow, acc = hero["glow"], hero["accent"]
@@ -277,21 +559,8 @@ def draw_front(img, g, hero, t, ai_active=False):
         cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, (235, 235, 240), int(sw * .07), AA)
         cv2.ellipse(img, ip(g["neck"] + [0, sw * .04]), (int(sw * .4), int(sw * .12)), 0, 0, 360, glow, 2, AA)
 
-    # Корона / Шлем / Нимб над головой
-    hr = g["hr"]
-    crown_png = load_hero_png(hero["id"], "crown")
-    if crown_png is not None:
-        overlay_rgba_sprite(img, crown_png, g["nose"][0], g["nose"][1] - hr * 1.75, hr * 1.8, hr * 1.1)
-    elif hero["crown"]:
-        b, wd = g["nose"] + [0, -hr * 1.55], hr * .75
-        pts = [b + [-wd, 0], b + [-wd, -hr * .55], b + [-wd / 2, -hr * .2], b + [0, -hr * .75], b + [wd / 2, -hr * .2], b + [wd, -hr * .55], b + [wd, 0]]
-        apoly(img, pts, acc, 1.0, (255, 255, 255), 2)
-        for q in (pts[1], pts[3], pts[5]):
-            cv2.circle(img, ip(q), max(3, int(hr * .1)), (255, 255, 255), -1, AA)
-    if hero["halo"]:
-        c = g["nose"] + [0, -hr * 1.75 + math.sin(t * 3) * 4]
-        cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, hero["glow"], 6, AA)
-        cv2.ellipse(img, ip(c), (int(hr * .85), int(hr * .22)), 0, 0, 360, (255, 255, 255), 2, AA)
+    # Фирменные маски, шлемы и головные уборы (лицо всегда полностью открыто!)
+    draw_hero_headpiece(img, g, hero, t)
 
     # Перчатки и наручи на запястьях
     glove_png = load_hero_png(hero["id"], "glove")

@@ -444,8 +444,12 @@ def holo_person(frame, hero, t, g, bbox=None):
         af = a.astype(np.float32) * (1.0 / 255.0)
         rx0, ry0, rx1, ry1 = x0 - bx0, y0 - by0, x1 - bx0, y1 - by0
         fg_face = frame[y0:y1, x0:x1]
+        # Яркое солнечное освещение лица ребёнка (чистый тон кожи без темноты)
+        mean_face = float(cv2.mean(fg_face)[0] * 0.114 + cv2.mean(fg_face)[1] * 0.587 + cv2.mean(fg_face)[2] * 0.299)
+        scale_f = min(2.1, 148.0 / max(30.0, mean_face))
+        fg_face_bright = cv2.convertScaleAbs(fg_face, alpha=scale_f, beta=int(24 * (scale_f - 0.5)))
         bg_face = out_person_roi[ry0:ry1, rx0:rx1]
-        out_person_roi[ry0:ry1, rx0:rx1] = cv2.blendLinear(fg_face, bg_face, af, 1.0 - af)
+        out_person_roi[ry0:ry1, rx0:rx1] = cv2.blendLinear(fg_face_bright, bg_face, af, 1.0 - af)
     return out_person_roi
 
 
