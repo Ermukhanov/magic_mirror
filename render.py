@@ -422,8 +422,8 @@ def holo_person(frame, hero, t, g, bbox=None):
 
     # Солнечная автоэкспозиция тела ребёнка (цель 162 яркости)
     mean_val = float(cv2.mean(f_roi)[0] * 0.114 + cv2.mean(f_roi)[1] * 0.587 + cv2.mean(f_roi)[2] * 0.299)
-    gain_b = min(2.4, 162.0 / max(30.0, mean_val))
-    beta_b = int(24 * (gain_b - 0.5))
+    gain_b = min(2.4, 175.0 / max(30.0, mean_val))
+    beta_b = int(30 * (gain_b - 0.5)) + 6
     bright_live = cv2.convertScaleAbs(f_roi, alpha=gain_b, beta=beta_b)
 
     out_person_roi = bright_live

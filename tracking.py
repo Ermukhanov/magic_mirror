@@ -265,19 +265,23 @@ def get_fingertip_pos(p, side="R"):
 
     forearm = (wr - el) if el_vis >= 0.30 else np.zeros(2, np.float32)
 
-    # Если кончик указательного пальца хорошо виден (landmarks 19/20)
+    # Центр ладони: между запястьем и основаниями указательного/мизинца (landmarks 17/19, 18/20)
+    pnk_vis = float(p[pnk_idx, 2])
     if ind_vis >= 0.40 and float(np.linalg.norm(ind)) > 5.0 and float(np.linalg.norm(ind - wr)) < 160.0:
         vec = ind - wr
         if float(np.dot(vec, forearm)) >= 0.0 or el_vis < 0.30:
-            tip = ind + 0.30 * vec
+            if pnk_vis >= 0.35 and float(np.linalg.norm(pnk - wr)) < 160.0:
+                tip = 0.30 * wr + 0.40 * ind + 0.30 * pnk
+            else:
+                tip = wr + 0.50 * vec
         else:
-            tip = wr + 0.38 * forearm
+            tip = wr + 0.20 * forearm
         return tip.astype(np.float32), max(wr_vis, ind_vis)
 
-    # Иначе экстраполируем от локтя через запястье вдоль предплечья
+    # Иначе экстраполируем от локтя через запястье вдоль предплечья (до центра ладони)
     if el_vis >= 0.35:
         forearm = wr - el
-        tip = wr + 0.38 * forearm
+        tip = wr + 0.20 * forearm
         return tip.astype(np.float32), wr_vis
 
     return wr.astype(np.float32), wr_vis

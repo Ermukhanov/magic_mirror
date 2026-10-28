@@ -852,7 +852,7 @@ class AITransformManager:
         ai_sharp = cv2.addWeighted(ai_roi, 1.25, ai_blur, -0.25, 0)
 
         # 3. Сочное осветление костюма ИИ (сияющее золото, полированная броня, сочные цвета без затемняющих полос)
-        ai_costume = cv2.convertScaleAbs(ai_sharp, alpha=1.35, beta=28)
+        ai_costume = cv2.convertScaleAbs(ai_sharp, alpha=1.45, beta=34)
 
         # 4. Вклеиваем настоящее живое лицо, причёску, шею и кисти рук с солнечным дневным авто-освещением
         live_roi = frame_full[by0:by1, bx0:bx1]
@@ -911,6 +911,7 @@ class AITransformManager:
                 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
                     SD_TURBO_DIR,
                     torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
                     variant="fp16",
                     safety_checker=None,
                     requires_safety_checker=False,
@@ -1136,7 +1137,7 @@ class AITransformManager:
 
                 # Ограничение частоты фонового потока ИИ (~12 FPS) для защиты ноутбука от перегрева.
                 # Аффинный warp_ai_to_live_pose обеспечивает плавные 30-60 FPS на основном экране!
-                sleep_cool = max(0.005, 0.080 - dt_ai)
+                sleep_cool = max(0.002, 0.040 - dt_ai)
                 time.sleep(sleep_cool)
 
         except Exception as e:
