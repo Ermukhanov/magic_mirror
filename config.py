@@ -46,6 +46,13 @@ def load_config():
                 cfg.update(json.load(f))
         except Exception:
             pass
+    # Облегчённый профиль для слабых ноутбуков (запуск через start_lite.bat: MM_PROFILE=lite)
+    if os.environ.get("MM_PROFILE", "").lower() == "lite":
+        try:
+            with open(os.path.join(BASE_DIR, "config_lite.json"), "r", encoding="utf-8") as f:
+                cfg.update(json.load(f))
+        except Exception:
+            pass
     return cfg
 
 

@@ -1,0 +1,13 @@
+{
+  "width": 1280,
+  "height": 720,
+  "pose_width": 256,
+  "pose_height": 144,
+  "pose_complexity": 0,
+  "ai_transform": "off",
+  "video_worlds": false,
+  "rich_worlds": false,
+  "fx_clips": false,
+  "sketch_conditioning": false,
+  "fullscreen": true
+}
