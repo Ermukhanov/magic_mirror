@@ -889,11 +889,20 @@ class AITransformManager:
                 return
 
             import torch
-            if not torch.cuda.is_available():
+            use_cuda = torch.cuda.is_available()
+            dml_device = None
+            if not use_cuda:
+                # Запасной путь для AMD / Intel видеокарт на Windows через DirectML (медленнее CUDA)
+                try:
+                    import torch_directml
+                    dml_device = torch_directml.device()
+                except Exception:
+                    dml_device = None
+            if not use_cuda and dml_device is None:
                 self.failed = True
                 self.status = "error"
-                self.error_msg_short = "нет CUDA"
-                self.error_msg = "CUDA недоступна, видеокарта NVIDIA не найдена"
+                self.error_msg_short = "нет CUDA/DirectML"
+                self.error_msg = "CUDA недоступна и torch-directml не установлен"
                 print(f"[AI_TRANSFORM] Ошибка: {self.error_msg}")
                 logging.warning(f"[AI_TRANSFORM] {self.error_msg}")
                 return
@@ -901,10 +910,11 @@ class AITransformManager:
             from diffusers import StableDiffusionImg2ImgPipeline, AutoencoderTiny
             from diffusers.models.attention_processor import AttnProcessor2_0
 
-            device = "cuda"
-            torch.backends.cuda.matmul.allow_tf32 = True
-            torch.backends.cudnn.allow_tf32 = True
-            torch.backends.cudnn.benchmark = False
+            device = "cuda" if use_cuda else dml_device
+            if use_cuda:
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+                torch.backends.cudnn.benchmark = False
 
             print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
             try:
@@ -955,7 +965,8 @@ class AITransformManager:
                     )
                     embeds_map[hid] = emb
             pipe.text_encoder.to("cpu")
-            torch.cuda.empty_cache()
+            if use_cuda:
+                torch.cuda.empty_cache()
 
             scaling_factor = float(pipe.vae.config.scaling_factor)
             alphas_cumprod_cpu = pipe.scheduler.alphas_cumprod.cpu().numpy()
@@ -965,9 +976,9 @@ class AITransformManager:
             noises_map = {}
             for hid in HERO_PROMPTS:
                 seed_val = int(seeds_cfg.get(hid, 1001))
-                gen = torch.Generator(device=device).manual_seed(seed_val)
-                n1 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device=device, dtype=torch.float16).contiguous(memory_format=torch.channels_last)
-                n2 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device=device, dtype=torch.float16).contiguous(memory_format=torch.channels_last)
+                gen = torch.Generator(device="cuda" if use_cuda else "cpu").manual_seed(seed_val)
+                n1 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cuda" if use_cuda else "cpu", dtype=torch.float16).to(device).contiguous(memory_format=torch.channels_last)
+                n2 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cuda" if use_cuda else "cpu", dtype=torch.float16).to(device).contiguous(memory_format=torch.channels_last)
                 noises_map[hid] = (n1, n2)
 
             static_in = torch.zeros((1, 3, self.ai_h, self.ai_w), device=device, dtype=torch.float16).contiguous(memory_format=torch.channels_last)
@@ -997,6 +1008,17 @@ class AITransformManager:
                             x = x + (sig_down - sig) * eps + static_n2 * sig_up
                     return pipe.vae.decode(x / scaling_factor, return_dict=False)[0]
 
+                if not use_cuda:
+                    # Без CUDA Graph: обычный прогон шага на каждый кадр
+                    holder = [None]
+
+                    class _Runner:
+                        @staticmethod
+                        def replay():
+                            with torch.inference_mode():
+                                holder[0] = _step_fn()
+                    return _Runner, holder
+
                 s_stream = torch.cuda.Stream()
                 s_stream.wait_stream(torch.cuda.current_stream())
                 with torch.cuda.stream(s_stream), torch.inference_mode():
@@ -1014,7 +1036,7 @@ class AITransformManager:
             self.ready = True
             self.status = "ready"
             self.ready_time = time.perf_counter()
-            self.device_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "GPU"
+            self.device_name = torch.cuda.get_device_name(0) if use_cuda else "DirectML (AMD/Intel)"
             load_dt = self.ready_time - self.start_time
             print(f"[AI_TRANSFORM] ИИ готов к работе ({self.device_name}, прогрев {load_dt:.1f} сек, SD-Turbo + TAESD)")
             logging.info(f"[AI_TRANSFORM] GPU-поток SD-Turbo + TAESD успешно инициализирован ({self.device_name})")
@@ -1112,7 +1134,8 @@ class AITransformManager:
                         graphs[steps] = _build_graph(steps)
                     g_c, out_buf = graphs[steps]
                     g_c.replay()
-                    out_rgb = ((out_buf[0].permute(1, 2, 0).clamp(-1, 1) + 1.0) * 127.5).to(torch.uint8).cpu().numpy()
+                    out_t = out_buf if use_cuda else out_buf[0]
+                    out_rgb = ((out_t[0].permute(1, 2, 0).clamp(-1, 1) + 1.0) * 127.5).to(torch.uint8).cpu().numpy()
 
                 out_bgr = cv2.cvtColor(out_rgb, cv2.COLOR_RGB2BGR)
                 if prev_ema is not None and prev_ema.shape == out_bgr.shape and prev_hero_id == hid:
@@ -1122,7 +1145,7 @@ class AITransformManager:
                 prev_hero_id = hid
 
                 dt_ai = max(1e-3, time.perf_counter() - t0)
-                vram_now = torch.cuda.max_memory_allocated(device) / (1024 ** 3)
+                vram_now = (torch.cuda.max_memory_allocated(device) / (1024 ** 3)) if use_cuda else 0.0
                 now_done = time.perf_counter()
 
                 with self.lock:
