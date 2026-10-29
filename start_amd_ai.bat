@@ -16,7 +16,11 @@ if not exist "models\sd-turbo\unet\diffusion_pytorch_model.fp16.safetensors" (
   pause
   exit /b 1
 )
-py -3.11 magic_mirror_v2.py && goto :eof
-py -3.10 magic_mirror_v2.py && goto :eof
+py -3.11 --version >nul 2>nul && (py -3.11 magic_mirror_v2.py & goto :end)
+py -3.10 --version >nul 2>nul && (py -3.10 magic_mirror_v2.py & goto :end)
 echo Python 3.11 not found. Run install_amd_ai.bat first.
+:end
+echo.
+echo Game closed. If it crashed, send a screenshot of the text above.
 pause
+
