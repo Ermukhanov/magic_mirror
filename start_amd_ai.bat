@@ -7,27 +7,45 @@ echo ==========================================================
 echo   MAGIC MIRROR - AMD AI Mode
 echo ==========================================================
 
-REM --- Find Python ---
+REM --- Find Python 3.11 full path ---
 set "PY="
+
+REM Try py launcher first
 py -3.11 --version >nul 2>nul
-if not errorlevel 1 set "PY=py -3.11"
+if not errorlevel 1 (
+    for /f "delims=" %%P in ('py -3.11 -c "import sys; print(sys.executable)"') do set "PY=%%P"
+)
+
+REM Try py 3.10
 if not defined PY (
     py -3.10 --version >nul 2>nul
-    if not errorlevel 1 set "PY=py -3.10"
+    if not errorlevel 1 (
+        for /f "delims=" %%P in ('py -3.10 -c "import sys; print(sys.executable)"') do set "PY=%%P"
+    )
 )
+
+REM Try python in PATH
 if not defined PY (
     python --version >nul 2>nul
-    if not errorlevel 1 set "PY=python"
+    if not errorlevel 1 (
+        for /f "delims=" %%P in ('python -c "import sys; print(sys.executable)"') do set "PY=%%P"
+    )
 )
+
+REM Try standard install paths
 if not defined PY (
     if exist "%LOCALAPPDATA%\Programs\Python\Python311\python.exe" set "PY=%LOCALAPPDATA%\Programs\Python\Python311\python.exe"
 )
+if not defined PY (
+    if exist "%LOCALAPPDATA%\Programs\Python\Python310\python.exe" set "PY=%LOCALAPPDATA%\Programs\Python\Python310\python.exe"
+)
+
 if not defined PY (
     echo [ERROR] Python not found! Install Python 3.11 and add to PATH.
     pause
     exit /b 1
 )
-echo Python: %PY%
+echo Python: "%PY%"
 
 REM --- Check if cv2 is installed, if not run install ---
 "%PY%" -c "import cv2" >nul 2>nul
