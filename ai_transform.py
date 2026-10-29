@@ -668,6 +668,9 @@ class AITransformManager:
 
         self._thread = None
 
+    def is_alive(self):
+        return self._thread is not None and self._thread.is_alive()
+
     def start(self):
         if self._thread is not None:
             return
