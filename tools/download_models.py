@@ -2,7 +2,7 @@
 import os
 from huggingface_hub import snapshot_download
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS = os.path.join(BASE, "models")
 
 if not os.path.exists(os.path.join(MODELS, "sd-turbo", "unet", "diffusion_pytorch_model.fp16.safetensors")):
