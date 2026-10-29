@@ -25,7 +25,7 @@ echo === Installing. Log: install_log.txt ===
 %PY% -m pip install --upgrade pip
 %PY% -m pip install -r requirements_light.txt
 %PY% -m pip install torch-directml
-%PY% -m pip install diffusers transformers accelerate safetensors huggingface_hub
+%PY% -m pip install "diffusers==0.30.3" "transformers==4.44.2" "accelerate==0.34.2" "huggingface_hub==0.25.2" "numpy<2" "safetensors<0.5"
 %PY% tools\download_models.py
 ) > install_log.txt 2>&1
 type install_log.txt | more
