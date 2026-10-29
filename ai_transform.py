@@ -750,10 +750,14 @@ class AITransformManager:
         with self.lock:
             if self.out_bgr_small is None or self.out_hero_id != hero["id"]:
                 return False
-            if (t_real - self.out_ts) > 3.0:
+            # CPU-режим: ИИ-кадр обновляется редко (~5-10 сек), даём 30 сек на устаревание
+            stale_timeout = 30.0 if self.device_name.startswith("CPU") else 3.0
+            if (t_real - self.out_ts) > stale_timeout:
                 return False
+            # На CPU не проверяем fps < 2 — он всегда будет ниже 2 FPS
             if str(config.AI_TRANSFORM).lower() == "auto" and 0.0 < self.ai_fps < 2.0:
-                return False
+                if not self.device_name.startswith("CPU"):
+                    return False
         return True
 
     def submit_frame(self, frame_full, clean_mask_full, p_full, bbox, hero, frame_idx):
@@ -892,8 +896,10 @@ class AITransformManager:
                 return
 
             import torch
+            import gc
             use_cuda = torch.cuda.is_available()
             dml_device = None
+            use_cpu_only = False  # CPU-fallback для слабых ноутбуков (8 ГБ ОЗУ)
             if not use_cuda:
                 # Запасной путь для AMD / Intel видеокарт на Windows через DirectML (медленнее CUDA)
                 try:
@@ -901,85 +907,105 @@ class AITransformManager:
                     dml_device = torch_directml.device()
                 except Exception:
                     dml_device = None
-            if not use_cuda and dml_device is None:
-                self.failed = True
-                self.status = "error"
-                self.error_msg_short = "нет CUDA/DirectML"
-                self.error_msg = "CUDA недоступна и torch-directml не установлен"
-                print(f"[AI_TRANSFORM] Ошибка: {self.error_msg}")
-                logging.warning(f"[AI_TRANSFORM] {self.error_msg}")
-                return
 
             from diffusers import StableDiffusionImg2ImgPipeline, AutoencoderTiny
-            from diffusers.models.attention_processor import AttnProcessor2_0
+            try:
+                from diffusers.models.attention_processor import AttnProcessor2_0
+            except Exception:
+                AttnProcessor2_0 = None
 
-            device = "cuda" if use_cuda else dml_device
+            # --- Функция загрузки пайплайна с выбором устройства ---
+            def _load_pipeline(target_device, dtype, use_fp16_variant):
+                """Загружает SD-Turbo + TAESD на указанное устройство."""
+                gc.collect()
+                kw = dict(
+                    torch_dtype=dtype,
+                    low_cpu_mem_usage=True,
+                    safety_checker=None,
+                    requires_safety_checker=False,
+                    local_files_only=True,
+                )
+                if use_fp16_variant:
+                    kw["variant"] = "fp16"
+                try:
+                    p = StableDiffusionImg2ImgPipeline.from_pretrained(SD_TURBO_DIR, **kw)
+                except Exception:
+                    gc.collect()
+                    kw.pop("variant", None)
+                    p = StableDiffusionImg2ImgPipeline.from_pretrained(SD_TURBO_DIR, **kw)
+
+                # Удаляем исходный VAE до загрузки TAESD (экономит ~150 МБ)
+                del p.vae
+                gc.collect()
+
+                taesd = AutoencoderTiny.from_pretrained(
+                    TAESD_DIR, torch_dtype=dtype, local_files_only=True,
+                )
+                p.vae = taesd
+                return p
+
+            # --- 3-ступенчатый выбор устройства: CUDA → DirectML → CPU ---
+            device = None
+            pipe = None
+
             if use_cuda:
+                device = "cuda"
                 torch.backends.cuda.matmul.allow_tf32 = True
                 torch.backends.cudnn.allow_tf32 = True
                 torch.backends.cudnn.benchmark = False
-
-            print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
-
-            # Агрессивная очистка памяти перед загрузкой модели (критично для ноутбуков с 8 ГБ ОЗУ)
-            import gc
-            gc.collect()
-            if use_cuda:
+                print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
+                gc.collect()
                 torch.cuda.empty_cache()
-
-            try:
-                pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-                    SD_TURBO_DIR,
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    variant="fp16",
-                    safety_checker=None,
-                    requires_safety_checker=False,
-                    local_files_only=True,
-                )
-            except Exception:
-                gc.collect()
-                pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
-                    SD_TURBO_DIR,
-                    torch_dtype=torch.float16,
-                    low_cpu_mem_usage=True,
-                    safety_checker=None,
-                    requires_safety_checker=False,
-                    local_files_only=True,
-                )
-
-            # Удаляем исходный VAE до загрузки TAESD (экономит ~150 МБ)
-            del pipe.vae
-            gc.collect()
-
-            taesd = AutoencoderTiny.from_pretrained(
-                TAESD_DIR,
-                torch_dtype=torch.float16,
-                local_files_only=True,
-            )
-            pipe.vae = taesd
-
-            # Для DirectML (AMD): загружаем компоненты по одному, чтобы не было пикового расхода памяти
-            if not use_cuda:
-                print("[AI_TRANSFORM] DirectML (AMD): пошаговая загрузка компонентов...")
-                pipe.unet.to(device)
-                gc.collect()
-                pipe.vae.to(device)
-                gc.collect()
-            else:
+                pipe = _load_pipeline(device, torch.float16, True)
                 pipe.to(device)
 
+            elif dml_device is not None:
+                device = dml_device
+                print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять (DirectML)...")
+                try:
+                    pipe = _load_pipeline(device, torch.float16, True)
+                    # Для DirectML: загружаем компоненты по одному, чтобы не было пикового расхода памяти
+                    print("[AI_TRANSFORM] DirectML (AMD): пошаговая загрузка компонентов...")
+                    pipe.unet.to(device)
+                    gc.collect()
+                    pipe.vae.to(device)
+                    gc.collect()
+                except Exception as dml_err:
+                    # DirectML OOM или другая ошибка → переключаемся на CPU
+                    print(f"[AI_TRANSFORM] DirectML не смог загрузить модель: {dml_err}")
+                    print("[AI_TRANSFORM] Переключение на CPU-режим (медленнее, но стабильно)...")
+                    del pipe
+                    pipe = None
+                    gc.collect()
+                    use_cpu_only = True
+
+            if pipe is None and not use_cuda:
+                # CPU-fallback: загрузка на CPU с float32 (работает на любом железе)
+                use_cpu_only = True
+                device = "cpu"
+                print("[AI_TRANSFORM] CPU-режим: загрузка SD-Turbo (float32) на процессор...")
+                print("[AI_TRANSFORM] ИИ будет работать медленно (~1 кадр/5-10 сек), но стабильно!")
+                # Уменьшаем разрешение для CPU-режима
+                self.ai_w = min(self.ai_w, 128)
+                self.ai_h = min(self.ai_h, 160)
+                pipe = _load_pipeline(device, torch.float32, False)
+                # Удаляем text_encoder с CPU после кодирования промптов (ниже)
+                # pipe остаётся на CPU
+
             pipe.set_progress_bar_config(disable=True)
-            try:
-                pipe.unet.set_attn_processor(AttnProcessor2_0())
-            except Exception:
-                pass  # AttnProcessor2_0 может не поддерживаться на DirectML
-            try:
-                pipe.unet.to(memory_format=torch.channels_last)
-                pipe.vae.to(memory_format=torch.channels_last)
-            except Exception:
-                pass  # channels_last может не поддерживаться на DirectML
-            print("[AI_TRANSFORM] Модели загружены в VRAM. Кодирование промптов 8 героев...")
+            if AttnProcessor2_0 is not None:
+                try:
+                    pipe.unet.set_attn_processor(AttnProcessor2_0())
+                except Exception:
+                    pass  # AttnProcessor2_0 может не поддерживаться на DirectML/CPU
+            if not use_cpu_only:
+                try:
+                    pipe.unet.to(memory_format=torch.channels_last)
+                    pipe.vae.to(memory_format=torch.channels_last)
+                except Exception:
+                    pass  # channels_last может не поддерживаться на DirectML
+            dev_label = "CPU (float32)" if use_cpu_only else "VRAM"
+            print(f"[AI_TRANSFORM] Модели загружены в {dev_label}. Кодирование промптов 8 героев...")
 
             prompts_cfg = config.CFG.get("ai_prompts", HERO_PROMPTS)
             seeds_cfg = config.CFG.get("ai_hero_seeds", {})
@@ -996,9 +1022,9 @@ class AITransformManager:
                         do_classifier_free_guidance=False,
                     )
                     embeds_map[hid] = emb
-            pipe.text_encoder.to("cpu")
+            if not use_cpu_only:
+                pipe.text_encoder.to("cpu")
             del pipe.text_encoder
-            import gc
             gc.collect()
             if use_cuda:
                 torch.cuda.empty_cache()
@@ -1008,19 +1034,25 @@ class AITransformManager:
             lat_h, lat_w = self.ai_h // 8, self.ai_w // 8
 
             # Фиксированный шум для каждого из 8 героев против мерцания
+            dtype = torch.float32 if use_cpu_only else torch.float16
             noises_map = {}
             for hid in HERO_PROMPTS:
                 seed_val = int(seeds_cfg.get(hid, 1001))
-                gen = torch.Generator(device="cuda" if use_cuda else "cpu").manual_seed(seed_val)
-                n1 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cuda" if use_cuda else "cpu", dtype=torch.float16).to(device).contiguous(memory_format=torch.channels_last)
-                n2 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cuda" if use_cuda else "cpu", dtype=torch.float16).to(device).contiguous(memory_format=torch.channels_last)
+                gen = torch.Generator(device="cpu").manual_seed(seed_val)
+                n1 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cpu", dtype=dtype).to(device)
+                n2 = torch.randn((1, 4, lat_h, lat_w), generator=gen, device="cpu", dtype=dtype).to(device)
+                if not use_cpu_only:
+                    n1 = n1.contiguous(memory_format=torch.channels_last)
+                    n2 = n2.contiguous(memory_format=torch.channels_last)
                 noises_map[hid] = (n1, n2)
 
-            static_in = torch.zeros((1, 3, self.ai_h, self.ai_w), device=device, dtype=torch.float16).contiguous(memory_format=torch.channels_last)
+            static_in = torch.zeros((1, 3, self.ai_h, self.ai_w), device=device, dtype=dtype)
+            if not use_cpu_only:
+                static_in = static_in.contiguous(memory_format=torch.channels_last)
             static_emb = embeds_map["alpamys"].clone()
             static_n1, static_n2 = noises_map["alpamys"][0].clone(), noises_map["alpamys"][1].clone()
             static_t = torch.tensor([699, 349], device=device, dtype=torch.long)
-            static_sig = torch.tensor([2.5, 1.1, 0.0], device=device, dtype=torch.float16)
+            static_sig = torch.tensor([2.5, 1.1, 0.0], device=device, dtype=dtype)
 
             # Захват CUDA Graph для рабочего количества шагов (1 или 2)
             graphs = {}
@@ -1071,7 +1103,7 @@ class AITransformManager:
             self.ready = True
             self.status = "ready"
             self.ready_time = time.perf_counter()
-            self.device_name = torch.cuda.get_device_name(0) if use_cuda else "DirectML (AMD/Intel)"
+            self.device_name = torch.cuda.get_device_name(0) if use_cuda else ("CPU (float32)" if use_cpu_only else "DirectML (AMD/Intel)")
             load_dt = self.ready_time - self.start_time
             print(f"[AI_TRANSFORM] ИИ готов к работе ({self.device_name}, прогрев {load_dt:.1f} сек, SD-Turbo + TAESD)")
             logging.info(f"[AI_TRANSFORM] GPU-поток SD-Turbo + TAESD успешно инициализирован ({self.device_name})")
@@ -1146,15 +1178,17 @@ class AITransformManager:
                         sig1 = math.sqrt(max(1e-5, (1.0 - ab1) / ab1))
                         if steps == 1:
                             static_t.copy_(torch.tensor([t0_idx, t1_idx], dtype=torch.long))
-                            static_sig.copy_(torch.tensor([sig0, 0.0, 0.0], dtype=torch.float16))
+                            static_sig.copy_(torch.tensor([sig0, 0.0, 0.0], dtype=dtype))
                         else:
                             static_t.copy_(torch.tensor([t0_idx, t1_idx], dtype=torch.long))
-                            static_sig.copy_(torch.tensor([sig0, sig1, 0.0], dtype=torch.float16))
+                            static_sig.copy_(torch.tensor([sig0, sig1, 0.0], dtype=dtype))
                         prev_sched_key = sched_key
 
                     in_t = (
-                        (torch.from_numpy(inp_rgb).to(device=device, dtype=torch.float16).permute(2, 0, 1).unsqueeze(0) / 127.5) - 1.0
-                    ).contiguous(memory_format=torch.channels_last)
+                        (torch.from_numpy(inp_rgb).to(device=device, dtype=dtype).permute(2, 0, 1).unsqueeze(0) / 127.5) - 1.0
+                    )
+                    if not use_cpu_only:
+                        in_t = in_t.contiguous(memory_format=torch.channels_last)
                     static_in.copy_(in_t)
 
                     # Переключение на эмбеддинги и шум выбранного героя
@@ -1195,7 +1229,11 @@ class AITransformManager:
 
                 # Ограничение частоты фонового потока ИИ (~12 FPS) для защиты ноутбука от перегрева.
                 # Аффинный warp_ai_to_live_pose обеспечивает плавные 30-60 FPS на основном экране!
-                sleep_cool = max(0.002, 0.040 - dt_ai)
+                # CPU-режим: дополнительная пауза 2 сек между кадрами, чтобы не грузить ОЗУ
+                if use_cpu_only:
+                    sleep_cool = max(0.5, 2.0 - dt_ai)
+                else:
+                    sleep_cool = max(0.002, 0.040 - dt_ai)
                 time.sleep(sleep_cool)
 
         except Exception as e:

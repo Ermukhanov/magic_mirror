@@ -4,17 +4,17 @@
   "pose_width": 256,
   "pose_height": 144,
   "pose_complexity": 0,
-  "ai_transform": "auto",
+  "ai_transform": "on",
   "video_worlds": false,
   "rich_worlds": false,
   "fx_clips": false,
   "sketch_conditioning": true,
   "fullscreen": true,
   "ai_recommended": {
-    "width": 192,
-    "height": 256,
+    "width": 128,
+    "height": 160,
     "steps": 1,
     "strength": 0.42,
-    "ema_alpha": 0.75
+    "ema_alpha": 0.82
   }
 }
