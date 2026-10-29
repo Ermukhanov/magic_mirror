@@ -11,10 +11,10 @@
   "sketch_conditioning": true,
   "fullscreen": true,
   "ai_recommended": {
-    "width": 256,
-    "height": 320,
+    "width": 192,
+    "height": 256,
     "steps": 1,
-    "strength": 0.45,
-    "ema_alpha": 0.7
+    "strength": 0.42,
+    "ema_alpha": 0.75
   }
 }

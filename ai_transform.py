@@ -920,6 +920,13 @@ class AITransformManager:
                 torch.backends.cudnn.benchmark = False
 
             print("[AI_TRANSFORM] Загрузка моделей SD-Turbo (fp16) + TAESD в видеопамять...")
+
+            # Агрессивная очистка памяти перед загрузкой модели (критично для ноутбуков с 8 ГБ ОЗУ)
+            import gc
+            gc.collect()
+            if use_cuda:
+                torch.cuda.empty_cache()
+
             try:
                 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
                     SD_TURBO_DIR,
@@ -931,13 +938,19 @@ class AITransformManager:
                     local_files_only=True,
                 )
             except Exception:
+                gc.collect()
                 pipe = StableDiffusionImg2ImgPipeline.from_pretrained(
                     SD_TURBO_DIR,
                     torch_dtype=torch.float16,
+                    low_cpu_mem_usage=True,
                     safety_checker=None,
                     requires_safety_checker=False,
                     local_files_only=True,
                 )
+
+            # Удаляем исходный VAE до загрузки TAESD (экономит ~150 МБ)
+            del pipe.vae
+            gc.collect()
 
             taesd = AutoencoderTiny.from_pretrained(
                 TAESD_DIR,
@@ -945,11 +958,27 @@ class AITransformManager:
                 local_files_only=True,
             )
             pipe.vae = taesd
-            pipe.to(device)
+
+            # Для DirectML (AMD): загружаем компоненты по одному, чтобы не было пикового расхода памяти
+            if not use_cuda:
+                print("[AI_TRANSFORM] DirectML (AMD): пошаговая загрузка компонентов...")
+                pipe.unet.to(device)
+                gc.collect()
+                pipe.vae.to(device)
+                gc.collect()
+            else:
+                pipe.to(device)
+
             pipe.set_progress_bar_config(disable=True)
-            pipe.unet.set_attn_processor(AttnProcessor2_0())
-            pipe.unet.to(memory_format=torch.channels_last)
-            pipe.vae.to(memory_format=torch.channels_last)
+            try:
+                pipe.unet.set_attn_processor(AttnProcessor2_0())
+            except Exception:
+                pass  # AttnProcessor2_0 может не поддерживаться на DirectML
+            try:
+                pipe.unet.to(memory_format=torch.channels_last)
+                pipe.vae.to(memory_format=torch.channels_last)
+            except Exception:
+                pass  # channels_last может не поддерживаться на DirectML
             print("[AI_TRANSFORM] Модели загружены в VRAM. Кодирование промптов 8 героев...")
 
             prompts_cfg = config.CFG.get("ai_prompts", HERO_PROMPTS)
@@ -968,6 +997,9 @@ class AITransformManager:
                     )
                     embeds_map[hid] = emb
             pipe.text_encoder.to("cpu")
+            del pipe.text_encoder
+            import gc
+            gc.collect()
             if use_cuda:
                 torch.cuda.empty_cache()
 
